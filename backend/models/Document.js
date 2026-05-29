@@ -17,6 +17,14 @@ const DocumentSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  storageProvider: {
+    type: String,
+    enum: ['local', 's3'],
+    default: 'local',
+  },
+  storageKey: {
+    type: String,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

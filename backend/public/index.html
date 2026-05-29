@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpsMind AI - Admin Document Upload Portal</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="glass-bg"></div>
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <i data-lucide="brain-circuit"></i>
+        </div>
+        <div class="logo-text">
+          <h1>OpsMind <span>AI</span></h1>
+          <p>Enterprise SOP Knowledge Base Manager</p>
+        </div>
+      </div>
+      <div class="system-status">
+        <span class="status-dot"></span>
+        <span class="status-text">Server Status: Online</span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- Upload Section -->
+      <section class="card upload-card">
+        <div class="card-header">
+          <div class="header-icon cyan-glow">
+            <i data-lucide="file-up"></i>
+          </div>
+          <div>
+            <h2>Upload SOP Documents</h2>
+            <p>Ingest knowledge documents securely into MongoDB Atlas Vector Search</p>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- Dropzone -->
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+            <div class="dropzone-content">
+              <div class="upload-art">
+                <i data-lucide="upload-cloud" class="cloud-icon"></i>
+              </div>
+              <h3>Drag & Drop PDF File</h3>
+              <p>or <span>browse your computer</span></p>
+              <span class="file-hint">Supported Format: PDF (Max 50MB)</span>
+            </div>
+          </div>
+
+          <!-- Active File Info -->
+          <div class="selected-file-container" id="selectedFileContainer" style="display: none;">
+            <div class="file-details">
+              <i data-lucide="file-text" class="pdf-icon"></i>
+              <div class="file-info-text">
+                <h4 id="selectedFileName">document.pdf</h4>
+                <p id="selectedFileSize">0 KB</p>
+              </div>
+              <button class="btn-icon remove-file-btn" id="removeFileBtn" title="Remove File">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="upload-progress-wrapper" id="progressWrapper" style="display: none;">
+              <div class="progress-info">
+                <span id="uploadStatusText">Uploading document...</span>
+                <span id="uploadPercentage">0%</span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="uploadBtn">
+              <i data-lucide="sparkles"></i> Ingest Document
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Document Directory Section -->
+      <section class="card directory-card">
+        <div class="card-header">
+          <div class="header-icon purple-glow">
+            <i data-lucide="folder-git-2"></i>
+          </div>
+          <div class="header-main">
+            <div>
+              <h2>Document Directory</h2>
+              <p>Manage and track ingested PDF documents</p>
+            </div>
+            <div class="search-bar">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="searchDocsInput" placeholder="Search files...">
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body document-list-container">
+          <!-- Loading State -->
+          <div class="loading-state" id="loadingDocs" style="display: none;">
+            <div class="spinner"></div>
+            <p>Retrieving documents...</p>
+          </div>
+
+          <!-- Empty State -->
+          <div class="empty-state" id="emptyDocs" style="display: none;">
+            <i data-lucide="files" class="empty-icon"></i>
+            <h3>No Documents Found</h3>
+            <p>Upload your first PDF document to start indexing and generation.</p>
+          </div>
+
+          <!-- Table -->
+          <div class="table-responsive" id="tableContainer">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Document Name</th>
+                  <th>Size</th>
+                  <th>Chunks</th>
+                  <th>Storage</th>
+                  <th>Ingested Date</th>
+                  <th class="actions-header">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="documentsTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>

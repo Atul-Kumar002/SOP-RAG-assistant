@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const connectDB = require('./config/db');
 const docsRouter = require('./routes/docs');
 
@@ -12,6 +13,9 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static frontend files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/api/docs', docsRouter);
