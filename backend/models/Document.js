@@ -25,6 +25,16 @@ const DocumentSchema = new mongoose.Schema({
   storageKey: {
     type: String,
   },
+  metadata: {
+    title: String,
+    author: String,
+    subject: String,
+    creator: String,
+    producer: String,
+    creationDate: Date,
+    modificationDate: Date,
+    totalPages: Number,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

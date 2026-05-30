@@ -13,6 +13,7 @@ const chunkPages = (pages, chunkSize = 1000, overlap = 100) => {
   for (const page of pages) {
     const text = page.text;
     const pageNumber = page.pageNumber;
+    const pageMetadata = page.metadata || {};
 
     if (!text || text.trim().length === 0) {
       continue;
@@ -22,7 +23,8 @@ const chunkPages = (pages, chunkSize = 1000, overlap = 100) => {
     if (text.length <= chunkSize) {
       chunks.push({
         pageNumber,
-        text: text.trim()
+        text: text.trim(),
+        metadata: pageMetadata
       });
       continue;
     }
@@ -44,7 +46,8 @@ const chunkPages = (pages, chunkSize = 1000, overlap = 100) => {
 
       chunks.push({
         pageNumber,
-        text: chunkText.trim()
+        text: chunkText.trim(),
+        metadata: pageMetadata
       });
 
       start = end - overlap;

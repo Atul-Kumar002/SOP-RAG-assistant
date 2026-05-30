@@ -22,6 +22,13 @@ const ChunkSchema = new mongoose.Schema({
     type: [Number], // Array of floats, dimension 768 for text-embedding-004
     required: true,
   },
+  metadata: {
+    width: Number,
+    height: Number,
+    pageLabel: String,
+    wordCount: Number,
+    characterCount: Number,
+  },
 });
 
 module.exports = mongoose.model('Chunk', ChunkSchema);

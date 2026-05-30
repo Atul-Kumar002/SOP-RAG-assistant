@@ -65,9 +65,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // 2. Parse PDF to extract text page-by-page
     console.log(`Parsing PDF: ${fileName}`);
-    const pages = await parsePdf(dataBuffer);
+    // 2. Parse PDF to extract text page-by-page along with metadata
+    console.log(`Parsing PDF: ${fileName}`);
+    const { pages, metadata } = await parsePdf(dataBuffer);
     
-    if (pages.length === 0) {
+    if (!pages || pages.length === 0) {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       return res.status(400).json({ error: 'The PDF document contains no extractable text.' });
     }
@@ -92,7 +94,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       chunkCount: rawChunks.length,
       filePath: uploadResult.path,
       storageProvider: uploadResult.provider,
-      storageKey: uploadResult.key
+      storageKey: uploadResult.key,
+      metadata: metadata // Save document-level metadata
     });
     await document.save();
 
@@ -107,7 +110,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       documentName: fileName,
       pageNumber: chunk.pageNumber,
       text: chunk.text,
-      embedding: embeddings[index]
+      embedding: embeddings[index],
+      metadata: chunk.metadata // Save page-level metadata
     }));
 
     await Chunk.insertMany(chunksToInsert);
