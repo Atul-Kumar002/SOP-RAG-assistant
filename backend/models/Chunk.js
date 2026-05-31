@@ -28,6 +28,10 @@ const ChunkSchema = new mongoose.Schema({
     pageLabel: String,
     wordCount: Number,
     characterCount: Number,
+    pageNumber: Number,
+    documentName: String,
+    sectionInfo: String,
+    chunkIndex: Number,
   },
 });
 

@@ -76,7 +76,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // 3. Chunk the pages
     console.log(`Chunking text for: ${fileName}`);
-    const rawChunks = chunkPages(pages);
+    const rawChunks = chunkPages(pages, fileName, 1000, 100);
 
     if (rawChunks.length === 0) {
       if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
