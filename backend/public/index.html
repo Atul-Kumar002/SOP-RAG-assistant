@@ -38,62 +38,97 @@
     <!-- Main Grid -->
     <main class="dashboard-grid">
       
-      <!-- Upload Section -->
-      <section class="card upload-card">
-        <div class="card-header">
-          <div class="header-icon cyan-glow">
-            <i data-lucide="file-up"></i>
-          </div>
-          <div>
-            <h2>Upload SOP Documents</h2>
-            <p>Ingest knowledge documents securely into MongoDB Atlas Vector Search</p>
-          </div>
-        </div>
-
-        <div class="card-body">
-          <!-- Dropzone -->
-          <div class="dropzone" id="dropzone">
-            <input type="file" id="fileInput" accept=".pdf" style="display: none;">
-            <div class="dropzone-content">
-              <div class="upload-art">
-                <i data-lucide="upload-cloud" class="cloud-icon"></i>
-              </div>
-              <h3>Drag & Drop PDF File</h3>
-              <p>or <span>browse your computer</span></p>
-              <span class="file-hint">Supported Format: PDF (Max 50MB)</span>
+      <div class="sidebar-column">
+        <!-- Upload Section -->
+        <section class="card upload-card">
+          <div class="card-header">
+            <div class="header-icon cyan-glow">
+              <i data-lucide="file-up"></i>
+            </div>
+            <div>
+              <h2>Upload SOP Documents</h2>
+              <p>Ingest knowledge documents securely into MongoDB Atlas Vector Search</p>
             </div>
           </div>
 
-          <!-- Active File Info -->
-          <div class="selected-file-container" id="selectedFileContainer" style="display: none;">
-            <div class="file-details">
-              <i data-lucide="file-text" class="pdf-icon"></i>
-              <div class="file-info-text">
-                <h4 id="selectedFileName">document.pdf</h4>
-                <p id="selectedFileSize">0 KB</p>
+          <div class="card-body">
+            <!-- Dropzone -->
+            <div class="dropzone" id="dropzone">
+              <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+              <div class="dropzone-content">
+                <div class="upload-art">
+                  <i data-lucide="upload-cloud" class="cloud-icon"></i>
+                </div>
+                <h3>Drag & Drop PDF File</h3>
+                <p>or <span>browse your computer</span></p>
+                <span class="file-hint">Supported Format: PDF (Max 50MB)</span>
               </div>
-              <button class="btn-icon remove-file-btn" id="removeFileBtn" title="Remove File">
-                <i data-lucide="x"></i>
+            </div>
+
+            <!-- Active File Info -->
+            <div class="selected-file-container" id="selectedFileContainer" style="display: none;">
+              <div class="file-details">
+                <i data-lucide="file-text" class="pdf-icon"></i>
+                <div class="file-info-text">
+                  <h4 id="selectedFileName">document.pdf</h4>
+                  <p id="selectedFileSize">0 KB</p>
+                </div>
+                <button class="btn-icon remove-file-btn" id="removeFileBtn" title="Remove File">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+
+              <!-- Progress Bar -->
+              <div class="upload-progress-wrapper" id="progressWrapper" style="display: none;">
+                <div class="progress-info">
+                  <span id="uploadStatusText">Uploading document...</span>
+                  <span id="uploadPercentage">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar" id="progressBar"></div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-block" id="uploadBtn">
+                <i data-lucide="sparkles"></i> Ingest Document
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Search Section -->
+        <section class="card search-card">
+          <div class="card-header">
+            <div class="header-icon purple-glow">
+              <i data-lucide="search-code"></i>
+            </div>
+            <div>
+              <h2>SOP Query Assistant</h2>
+              <p>Search across SOP files using vector similarity</p>
+            </div>
+          </div>
+
+          <div class="card-body search-section-body">
+            <div class="search-input-group">
+              <textarea id="searchQueryInput" placeholder="Ask a question about your SOPs (e.g. What is the refund policy?)" rows="3"></textarea>
+              <button class="btn btn-primary btn-block" id="searchBtn">
+                <i data-lucide="sparkles"></i> Ask Assistant
               </button>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="upload-progress-wrapper" id="progressWrapper" style="display: none;">
-              <div class="progress-info">
-                <span id="uploadStatusText">Uploading document...</span>
-                <span id="uploadPercentage">0%</span>
+            <!-- Search Results -->
+            <div class="search-results-wrapper" id="searchResultsWrapper" style="display: none;">
+              <div class="search-results-header">
+                <h3>Query Results</h3>
+                <span class="results-count" id="resultsCount">0 matches</span>
               </div>
-              <div class="progress-bar-container">
-                <div class="progress-bar" id="progressBar"></div>
+              <div class="search-results-list" id="searchResultsList">
+                <!-- Dynamically populated -->
               </div>
             </div>
-
-            <button class="btn btn-primary btn-block" id="uploadBtn">
-              <i data-lucide="sparkles"></i> Ingest Document
-            </button>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <!-- Document Directory Section -->
       <section class="card directory-card">

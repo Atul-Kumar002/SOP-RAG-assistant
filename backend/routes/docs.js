@@ -7,7 +7,7 @@ const Document = require('../models/Document');
 const Chunk = require('../models/Chunk');
 const { parsePdf } = require('../services/pdfService');
 const { chunkPages } = require('../services/chunkService');
-const { getBatchEmbeddings } = require('../services/embeddingService');
+const { getEmbedding, getBatchEmbeddings } = require('../services/embeddingService');
 const storageService = require('../services/storageService');
 
 // Ensure upload directory exists for temporary Multer files
@@ -197,6 +197,55 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting document:', error);
     res.status(500).json({ error: 'Failed to delete document.' });
+  }
+});
+
+// @route   POST /api/docs/search
+// @desc    Perform Atlas Vector Search on SOP chunks using cosine similarity
+// @access  Public
+router.post('/search', async (req, res) => {
+  const { query, limit = 5 } = req.body;
+  if (!query || query.trim() === '') {
+    return res.status(400).json({ error: 'Search query is required.' });
+  }
+
+  try {
+    // 1. Generate embedding for the search query
+    console.log(`Generating embedding for search query: "${query}"`);
+    const queryEmbedding = await getEmbedding(query);
+
+    // 2. Perform MongoDB Atlas Vector Search using aggregation
+    const results = await Chunk.aggregate([
+      {
+        $vectorSearch: {
+          index: 'vector_index',
+          path: 'embedding',
+          queryVector: queryEmbedding,
+          numCandidates: 100,
+          limit: parseInt(limit) || 5
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          documentId: 1,
+          documentName: 1,
+          pageNumber: 1,
+          text: 1,
+          metadata: 1,
+          score: { $meta: 'vectorSearchScore' }
+        }
+      }
+    ]);
+
+    res.json(results);
+  } catch (error) {
+    console.error('Vector search failed:', error);
+    // Provide diagnostics to guide configuration
+    res.status(500).json({ 
+      error: `Vector Search failed: ${error.message}`,
+      details: 'Ensure you have configured a Vector Search index named "vector_index" on the "chunks" collection in MongoDB Atlas with fields matching { type: "vector", path: "embedding", numDimensions: 768, similarity: "cosine" }.'
+    });
   }
 });
 

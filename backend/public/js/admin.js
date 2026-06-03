@@ -17,6 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const tableContainer = document.getElementById('tableContainer');
   const documentsTableBody = document.getElementById('documentsTableBody');
   const toastContainer = document.getElementById('toastContainer');
+  
+  // Search UI Elements
+  const searchQueryInput = document.getElementById('searchQueryInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const searchResultsWrapper = document.getElementById('searchResultsWrapper');
+  const resultsCount = document.getElementById('resultsCount');
+  const searchResultsList = document.getElementById('searchResultsList');
 
   let activeFile = null;
   let allDocuments = [];
@@ -71,6 +78,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const term = e.target.value.toLowerCase();
     const filtered = allDocuments.filter(doc => doc.name.toLowerCase().includes(term));
     renderTable(filtered);
+  });
+
+  // SOP Query Assistant Search Events
+  searchBtn.addEventListener('click', () => {
+    performSemanticSearch();
+  });
+
+  searchQueryInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      performSemanticSearch();
+    }
   });
 
   // Functions
@@ -343,5 +362,95 @@ document.addEventListener('DOMContentLoaded', () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
+  // Vector Search Implementation
+  async function performSemanticSearch() {
+    const query = searchQueryInput.value.trim();
+    if (!query) {
+      showToast('Empty Query', 'Please enter a question or keywords to search.', 'info');
+      return;
+    }
+
+    searchBtn.disabled = true;
+    searchBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px; margin: 0 0.5rem 0 0; display: inline-block; border-width: 2px; vertical-align: middle;"></span> Searching...';
+    searchResultsWrapper.style.display = 'none';
+    searchResultsList.innerHTML = '';
+
+    try {
+      const res = await fetch('/api/docs/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query, limit: 5 })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to complete similarity search.');
+      }
+
+      const results = await res.json();
+      renderSearchResults(results);
+    } catch (error) {
+      console.error(error);
+      showToast('Search Failed', error.message || 'An error occurred during search query.', 'error');
+    } finally {
+      searchBtn.disabled = false;
+      searchBtn.innerHTML = '<i data-lucide="sparkles"></i> Ask Assistant';
+      lucide.createIcons();
+    }
+  }
+
+  function renderSearchResults(results) {
+    searchResultsWrapper.style.display = 'block';
+    resultsCount.textContent = `${results.length} match${results.length === 1 ? '' : 'es'}`;
+
+    if (results.length === 0) {
+      searchResultsList.innerHTML = `
+        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.85rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
+          No matching knowledge chunks found. Try uploading a relevant PDF or refining your search.
+        </div>
+      `;
+      return;
+    }
+
+    results.forEach(result => {
+      const div = document.createElement('div');
+      div.className = 'search-result-item';
+
+      const matchPercent = (result.score * 100).toFixed(1);
+      const sectionInfo = result.metadata?.sectionInfo || 'Introduction';
+
+      div.innerHTML = `
+        <div class="result-meta">
+          <span class="result-doc-name" title="${result.documentName}">
+            <i data-lucide="file-text"></i>
+            ${result.documentName}
+          </span>
+          <span class="badge badge-score">${matchPercent}% match</span>
+          <span class="badge badge-page">Page ${result.pageNumber}</span>
+        </div>
+        <p class="result-text">"${escapeHtml(result.text)}"</p>
+        <div class="result-section">
+          <i data-lucide="hash"></i>
+          Section: ${sectionInfo}
+        </div>
+      `;
+
+      searchResultsList.appendChild(div);
+    });
+
+    lucide.createIcons();
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 });

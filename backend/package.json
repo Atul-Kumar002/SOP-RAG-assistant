@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "verify-atlas": "node scripts/verify_atlas.js"
+    "verify-atlas": "node scripts/verify_atlas.js",
+    "verify-search": "node scripts/verify_search.js"
   },
   "keywords": [],
   "author": "",
