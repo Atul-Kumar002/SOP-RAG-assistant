@@ -25,7 +25,10 @@ const getEmbedding = async (text) => {
   try {
     const client = getClient();
     const model = client.getGenerativeModel({ model: 'text-embedding-004' });
-    const result = await model.embedContent(text);
+    const result = await model.embedContent({
+      content: { parts: [{ text }] },
+      outputDimensionality: 768,
+    });
     
     if (result && result.embedding && result.embedding.values) {
       return result.embedding.values;
@@ -55,7 +58,8 @@ const getBatchEmbeddings = async (texts) => {
     try {
       const result = await model.batchEmbedContents({
         requests: batch.map(t => ({
-          content: { parts: [{ text: t }] }
+          content: { parts: [{ text: t }] },
+          outputDimensionality: 768,
         }))
       });
       

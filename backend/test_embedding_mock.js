@@ -9,8 +9,13 @@ const originalBatchEmbedContents = GenerativeModel.prototype.batchEmbedContents;
 let mockBatchFail = false;
 
 // Mock embedContent
-GenerativeModel.prototype.embedContent = async function(text) {
-  console.log(`[Mock API] embedContent called for: "${typeof text === 'string' ? text.substring(0, 30) : JSON.stringify(text).substring(0, 30)}"`);
+GenerativeModel.prototype.embedContent = async function(request) {
+  console.log(`[Mock API] embedContent called with:`, JSON.stringify(request));
+  
+  if (!request || request.outputDimensionality !== 768) {
+    throw new Error(`Embedding standardization failed: outputDimensionality is ${request?.outputDimensionality}, expected 768`);
+  }
+
   return {
     embedding: {
       values: Array(768).fill(0.1) // 768-dimensional mock embedding
@@ -21,6 +26,11 @@ GenerativeModel.prototype.embedContent = async function(text) {
 // Mock batchEmbedContents
 GenerativeModel.prototype.batchEmbedContents = async function(batchRequest) {
   console.log(`[Mock API] batchEmbedContents called with ${batchRequest.requests.length} items`);
+  
+  if (batchRequest.requests.some(req => req.outputDimensionality !== 768)) {
+    throw new Error('Batch embedding standardization failed: some request items are missing outputDimensionality: 768');
+  }
+
   if (mockBatchFail) {
     throw new Error('Mock batch request failed for testing fallback');
   }

@@ -105,23 +105,25 @@ const chunkSentences = (
     // Build the chunk
     while (i < sentences.length) {
       const sentence = sentences[i];
-
-      // Update active section if this sentence is a header
-      if (isHeader(sentence)) {
-        activeSectionRef.value = cleanHeader(sentence);
-      }
-
       const sentenceLength = sentence.length;
 
       // Check if adding this sentence would exceed the chunk size
       if (currentLength + (currentChunkSentences.length > 0 ? 1 : 0) + sentenceLength > chunkSize) {
         // Force add at least one sentence if chunk is empty to prevent infinite loops
         if (currentChunkSentences.length === 0) {
+          if (isHeader(sentence)) {
+            activeSectionRef.value = cleanHeader(sentence);
+          }
           currentChunkSentences.push(sentence);
           currentLength += sentenceLength;
           i++;
         }
         break;
+      }
+
+      // Update active section if this sentence is a header and fits in the chunk
+      if (isHeader(sentence)) {
+        activeSectionRef.value = cleanHeader(sentence);
       }
 
       currentChunkSentences.push(sentence);
