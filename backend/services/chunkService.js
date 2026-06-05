@@ -1,3 +1,6 @@
+const Chunk = require('../models/Chunk');
+const { getEmbedding } = require('./embeddingService');
+
 /**
  * Helper to identify if a line is likely a section header.
  * Looks for common patterns like markdown headers, numbered sections, or uppercase standalone lines.
@@ -238,10 +241,55 @@ const chunkPages = (pages, documentNameOrSize, chunkSize = 1000, overlap = 100) 
   return allChunks;
 };
 
+/**
+ * Performs MongoDB Atlas Vector Search on the chunks collection using cosine similarity.
+ *
+ * @param {string} queryText - The search query.
+ * @param {number} [limit=5] - Number of top chunks to retrieve. Clamped between 3 and 5.
+ * @returns {Promise<Array>} - Top semantically relevant chunks.
+ */
+const searchChunks = async (queryText, limit = 5) => {
+  if (!queryText || queryText.trim() === '') {
+    throw new Error('Search query is required.');
+  }
+
+  // Parse limit and clamp to [3, 5]
+  const parsedLimit = parseInt(limit);
+  const searchLimit = Math.max(3, Math.min(5, isNaN(parsedLimit) ? 5 : parsedLimit));
+
+  // 1. Generate embedding for the search query
+  const queryEmbedding = await getEmbedding(queryText);
+
+  // 2. Perform MongoDB Atlas Vector Search using aggregation
+  return await Chunk.aggregate([
+    {
+      $vectorSearch: {
+        index: 'vector_index',
+        path: 'embedding',
+        queryVector: queryEmbedding,
+        numCandidates: 100,
+        limit: searchLimit
+      }
+    },
+    {
+      $project: {
+        _id: 1,
+        documentId: 1,
+        documentName: 1,
+        pageNumber: 1,
+        text: 1,
+        metadata: 1,
+        score: { $meta: 'vectorSearchScore' }
+      }
+    }
+  ]);
+};
+
 module.exports = {
   chunkPages,
   isHeader,
   cleanHeader,
   splitIntoSentences,
-  chunkSentences
+  chunkSentences,
+  searchChunks
 };

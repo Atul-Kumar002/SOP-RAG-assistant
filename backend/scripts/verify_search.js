@@ -1,7 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { getEmbedding } = require('../services/embeddingService');
-const Chunk = require('../models/Chunk');
+const { searchChunks } = require('../services/chunkService');
 
 async function testVectorSearch() {
   console.log('==================================================');
@@ -30,37 +29,10 @@ async function testVectorSearch() {
     console.log(`✅ Connected successfully to: ${mongoose.connection.host}`);
     console.log(`   Database Name: ${mongoose.connection.db.databaseName}\n`);
 
-    // 3. Generate query embedding
+    // 3. Execute Vector Search using the refactored searchChunks service method
     const testQuery = 'refund policy instructions';
-    console.log(`Generating embedding for test query: "${testQuery}"...`);
-    const queryEmbedding = await getEmbedding(testQuery);
-    console.log(`✅ Embedding generated successfully. Dimension: ${queryEmbedding.length}\n`);
-
-    // 4. Test vector search
-    console.log('Executing $vectorSearch aggregation on "chunks" collection...');
-    const results = await Chunk.aggregate([
-      {
-        $vectorSearch: {
-          index: 'vector_index',
-          path: 'embedding',
-          queryVector: queryEmbedding,
-          numCandidates: 100,
-          limit: 3
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          documentId: 1,
-          documentName: 1,
-          pageNumber: 1,
-          text: 1,
-          metadata: 1,
-          score: { $meta: 'vectorSearchScore' }
-        }
-      }
-    ]);
-
+    console.log(`Executing searchChunks for query: "${testQuery}" with limit: 3...`);
+    const results = await searchChunks(testQuery, 3);
     console.log(`✅ Vector Search query completed. Found ${results.length} matches.\n`);
 
     if (results.length === 0) {

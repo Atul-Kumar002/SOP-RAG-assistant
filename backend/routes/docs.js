@@ -6,7 +6,7 @@ const path = require('path');
 const Document = require('../models/Document');
 const Chunk = require('../models/Chunk');
 const { parsePdf } = require('../services/pdfService');
-const { chunkPages } = require('../services/chunkService');
+const { chunkPages, searchChunks } = require('../services/chunkService');
 const { getEmbedding, getBatchEmbeddings } = require('../services/embeddingService');
 const storageService = require('../services/storageService');
 
@@ -210,34 +210,8 @@ router.post('/search', async (req, res) => {
   }
 
   try {
-    // 1. Generate embedding for the search query
-    console.log(`Generating embedding for search query: "${query}"`);
-    const queryEmbedding = await getEmbedding(query);
-
-    // 2. Perform MongoDB Atlas Vector Search using aggregation
-    const results = await Chunk.aggregate([
-      {
-        $vectorSearch: {
-          index: 'vector_index',
-          path: 'embedding',
-          queryVector: queryEmbedding,
-          numCandidates: 100,
-          limit: parseInt(limit) || 5
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          documentId: 1,
-          documentName: 1,
-          pageNumber: 1,
-          text: 1,
-          metadata: 1,
-          score: { $meta: 'vectorSearchScore' }
-        }
-      }
-    ]);
-
+    console.log(`Performing Vector Search for query: "${query}" with limit: ${limit}`);
+    const results = await searchChunks(query, limit);
     res.json(results);
   } catch (error) {
     console.error('Vector search failed:', error);
