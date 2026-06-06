@@ -9,6 +9,8 @@ const { parsePdf } = require('../services/pdfService');
 const { chunkPages, searchChunks } = require('../services/chunkService');
 const { getEmbedding, getBatchEmbeddings } = require('../services/embeddingService');
 const storageService = require('../services/storageService');
+const { buildContext, formatSources } = require('../services/contextBuilderService');
+const { generateAnswer } = require('../services/assistantService');
 
 // Ensure upload directory exists for temporary Multer files
 const uploadDir = path.join(__dirname, '../uploads');
@@ -219,6 +221,48 @@ router.post('/search', async (req, res) => {
     res.status(500).json({ 
       error: `Vector Search failed: ${error.message}`,
       details: 'Ensure you have configured a Vector Search index named "vector_index" on the "chunks" collection in MongoDB Atlas with fields matching { type: "vector", path: "embedding", numDimensions: 768, similarity: "cosine" }.'
+    });
+  }
+});
+
+// @route   POST /api/docs/ask
+// @desc    Perform Atlas Vector Search, merge context, generate LLM answer and format sources
+// @access  Public
+router.post('/ask', async (req, res) => {
+  const { query, limit = 5 } = req.body;
+  if (!query || query.trim() === '') {
+    return res.status(400).json({ error: 'Search query is required.' });
+  }
+
+  try {
+    console.log(`Performing Vector Search for Q&A query: "${query}" with limit: ${limit}`);
+    const results = await searchChunks(query, limit);
+    
+    // Build structured LLM context
+    const structuredContext = buildContext(results);
+    
+    // Format retrieved sources with Document Name, Page Number, and Section Reference
+    const formattedSources = formatSources(results);
+    
+    // Generate AI answer using Gemini
+    let answerText = '';
+    try {
+      answerText = await generateAnswer(query, structuredContext);
+    } catch (genError) {
+      console.error('AI answer generation failed:', genError);
+      answerText = `I failed to generate an answer due to an AI service error: ${genError.message}. However, here are the matching source references retrieved from the documents.`;
+    }
+
+    res.json({
+      answer: answerText,
+      sources: formattedSources,
+      context: structuredContext
+    });
+  } catch (error) {
+    console.error('Ask Assistant endpoint failed:', error);
+    res.status(500).json({
+      error: `Assistant Query failed: ${error.message}`,
+      details: 'Check your MongoDB Atlas Vector Search index and GEMINI_API_KEY environment variable configurations.'
     });
   }
 });

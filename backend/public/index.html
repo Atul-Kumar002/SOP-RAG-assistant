@@ -118,8 +118,19 @@
 
             <!-- Search Results -->
             <div class="search-results-wrapper" id="searchResultsWrapper" style="display: none;">
+              <!-- AI Assistant Answer Card -->
+              <div class="ai-answer-card" id="aiAnswerCard" style="display: none;">
+                <div class="ai-answer-header">
+                  <i data-lucide="sparkles"></i>
+                  <h3>AI Assistant Answer</h3>
+                </div>
+                <div class="ai-answer-content" id="aiAnswerContent">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+
               <div class="search-results-header">
-                <h3>Query Results</h3>
+                <h3>Query Sources</h3>
                 <span class="results-count" id="resultsCount">0 matches</span>
               </div>
               <div class="search-results-list" id="searchResultsList">

@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchResultsWrapper = document.getElementById('searchResultsWrapper');
   const resultsCount = document.getElementById('resultsCount');
   const searchResultsList = document.getElementById('searchResultsList');
+  const aiAnswerCard = document.getElementById('aiAnswerCard');
+  const aiAnswerContent = document.getElementById('aiAnswerContent');
 
   let activeFile = null;
   let allDocuments = [];
@@ -364,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
 
-  // Vector Search Implementation
+  // Vector Search & AI Q&A Assistant Implementation
   async function performSemanticSearch() {
     const query = searchQueryInput.value.trim();
     if (!query) {
@@ -373,12 +375,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     searchBtn.disabled = true;
-    searchBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px; margin: 0 0.5rem 0 0; display: inline-block; border-width: 2px; vertical-align: middle;"></span> Searching...';
+    searchBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px; margin: 0 0.5rem 0 0; display: inline-block; border-width: 2px; vertical-align: middle;"></span> Consulting Assistant...';
     searchResultsWrapper.style.display = 'none';
+    aiAnswerCard.style.display = 'none';
     searchResultsList.innerHTML = '';
 
     try {
-      const res = await fetch('/api/docs/search', {
+      const res = await fetch('/api/docs/ask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -388,14 +391,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Failed to complete similarity search.');
+        throw new Error(errData.error || 'Failed to complete Q&A assistant query.');
       }
 
-      const results = await res.json();
-      renderSearchResults(results);
+      const data = await res.json();
+      renderSearchResults(data);
     } catch (error) {
       console.error(error);
-      showToast('Search Failed', error.message || 'An error occurred during search query.', 'error');
+      showToast('Assistant Error', error.message || 'An error occurred during assistant query.', 'error');
     } finally {
       searchBtn.disabled = false;
       searchBtn.innerHTML = '<i data-lucide="sparkles"></i> Ask Assistant';
@@ -403,36 +406,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderSearchResults(results) {
+  function renderSearchResults(data) {
     searchResultsWrapper.style.display = 'block';
-    resultsCount.textContent = `${results.length} match${results.length === 1 ? '' : 'es'}`;
 
-    if (results.length === 0) {
+    // 1. Render AI Assistant Answer
+    if (data.answer) {
+      aiAnswerCard.style.display = 'block';
+      aiAnswerContent.innerHTML = formatAnswer(data.answer);
+    } else {
+      aiAnswerCard.style.display = 'none';
+    }
+
+    // 2. Render Source references
+    const sources = data.sources || [];
+    resultsCount.textContent = `${sources.length} source${sources.length === 1 ? '' : 's'}`;
+
+    if (sources.length === 0) {
       searchResultsList.innerHTML = `
         <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.85rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
-          No matching knowledge chunks found. Try uploading a relevant PDF or refining your search.
+          No matching knowledge sources found. Try uploading a relevant PDF or refining your search.
         </div>
       `;
       return;
     }
 
-    results.forEach(result => {
+    sources.forEach(source => {
       const div = document.createElement('div');
       div.className = 'search-result-item';
 
-      const matchPercent = (result.score * 100).toFixed(1);
-      const sectionInfo = result.metadata?.sectionInfo || 'Introduction';
+      const matchPercent = typeof source.score === 'number' ? `${(source.score * 100).toFixed(1)}% match` : 'N/A';
+      const sectionInfo = source.sectionRef || 'Introduction';
 
       div.innerHTML = `
         <div class="result-meta">
-          <span class="result-doc-name" title="${result.documentName}">
+          <span class="result-doc-name" title="${source.documentName}">
             <i data-lucide="file-text"></i>
-            ${result.documentName}
+            ${source.documentName}
           </span>
-          <span class="badge badge-score">${matchPercent}% match</span>
-          <span class="badge badge-page">Page ${result.pageNumber}</span>
+          <span class="badge badge-score">${matchPercent}</span>
+          <span class="badge badge-page">Page ${source.pageNumber}</span>
         </div>
-        <p class="result-text">"${escapeHtml(result.text)}"</p>
+        <p class="result-text">"${escapeHtml(source.text)}"</p>
         <div class="result-section">
           <i data-lucide="hash"></i>
           Section: ${sectionInfo}
@@ -444,6 +458,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lucide.createIcons();
   }
+
+  // Helper: Format raw LLM text/markdown to beautiful HTML paragraphs and lists
+  function formatAnswer(text) {
+    if (!text) return '';
+    
+    // First, escape HTML to ensure safety
+    let escaped = escapeHtml(text);
+
+    // Replace markdown-style bold tag: **bold** with <strong>bold</strong>
+    escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Parse lines and group lists
+    const lines = escaped.split('\n');
+    let inList = false;
+    let listType = null; // 'ul' or 'ol'
+    let html = '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        if (inList) {
+          html += `</${listType}>`;
+          inList = false;
+          listType = null;
+        }
+        continue;
+      }
+
+      // Check for bullet list item: * or -
+      if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+        if (inList && listType !== 'ul') {
+          html += `</${listType}>`;
+          inList = false;
+        }
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+          listType = 'ul';
+        }
+        html += `<li>${trimmed.substring(2)}</li>`;
+      } 
+      // Check for numbered list item: e.g. "1. " or "2. "
+      else if (/^\d+\.\s/.test(trimmed)) {
+        if (inList && listType !== 'ol') {
+          html += `</${listType}>`;
+          inList = false;
+        }
+        if (!inList) {
+          html += '<ol>';
+          inList = true;
+          listType = 'ol';
+        }
+        const bulletContent = trimmed.replace(/^\d+\.\s/, '');
+        html += `<li>${bulletContent}</li>`;
+      } 
+      // Normal paragraph
+      else {
+        if (inList) {
+          html += `</${listType}>`;
+          inList = false;
+          listType = null;
+        }
+        html += `<p>${line}</p>`;
+      }
+    }
+
+    if (inList) {
+      html += `</${listType}>`;
+    }
+
+    return html;
+  }
+
 
   function escapeHtml(text) {
     return text
