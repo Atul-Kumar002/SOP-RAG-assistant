@@ -206,14 +206,14 @@ router.delete('/:id', async (req, res) => {
 // @desc    Perform Atlas Vector Search on SOP chunks using cosine similarity
 // @access  Public
 router.post('/search', async (req, res) => {
-  const { query, limit = 5 } = req.body;
+  const { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
   if (!query || query.trim() === '') {
     return res.status(400).json({ error: 'Search query is required.' });
   }
 
   try {
-    console.log(`Performing Vector Search for query: "${query}" with limit: ${limit}`);
-    const results = await searchChunks(query, limit);
+    console.log(`Performing Vector Search for query: "${query}" with limit: ${limit}, threshold: ${similarityThreshold}, candidates: ${numCandidates}`);
+    const results = await searchChunks(query, limit, similarityThreshold, numCandidates);
     res.json(results);
   } catch (error) {
     console.error('Vector search failed:', error);
@@ -229,14 +229,14 @@ router.post('/search', async (req, res) => {
 // @desc    Perform Atlas Vector Search, merge context, generate LLM answer and format sources
 // @access  Public
 router.post('/ask', async (req, res) => {
-  const { query, limit = 5 } = req.body;
+  const { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
   if (!query || query.trim() === '') {
     return res.status(400).json({ error: 'Search query is required.' });
   }
 
   try {
-    console.log(`Performing Vector Search for Q&A query: "${query}" with limit: ${limit}`);
-    const results = await searchChunks(query, limit);
+    console.log(`Performing Vector Search for Q&A query: "${query}" with limit: ${limit}, threshold: ${similarityThreshold}, candidates: ${numCandidates}`);
+    const results = await searchChunks(query, limit, similarityThreshold, numCandidates);
     
     // Build structured LLM context
     const structuredContext = buildContext(results);

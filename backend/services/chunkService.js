@@ -245,29 +245,35 @@ const chunkPages = (pages, documentNameOrSize, chunkSize = 1000, overlap = 100) 
  * Performs MongoDB Atlas Vector Search on the chunks collection using cosine similarity.
  *
  * @param {string} queryText - The search query.
- * @param {number} [limit=5] - Number of top chunks to retrieve. Clamped between 3 and 5.
+ * @param {number} [limit=5] - Number of top chunks to retrieve. Clamped between 1 and 20.
+ * @param {number} [minSimilarity=0.0] - Minimum similarity score threshold to filter matches.
+ * @param {number} [numCandidates=100] - Total candidates to consider during vector search. Clamped between 10 and 500.
  * @returns {Promise<Array>} - Top semantically relevant chunks.
  */
-const searchChunks = async (queryText, limit = 5) => {
+const searchChunks = async (queryText, limit = 5, minSimilarity = 0.0, numCandidates = 100) => {
   if (!queryText || queryText.trim() === '') {
     throw new Error('Search query is required.');
   }
 
-  // Parse limit and clamp to [3, 5]
+  // Parse limit and clamp to [1, 20]
   const parsedLimit = parseInt(limit);
-  const searchLimit = Math.max(3, Math.min(5, isNaN(parsedLimit) ? 5 : parsedLimit));
+  const searchLimit = Math.max(1, Math.min(20, isNaN(parsedLimit) ? 5 : parsedLimit));
+
+  // Parse numCandidates and clamp to [10, 500]
+  const parsedCandidates = parseInt(numCandidates);
+  const searchCandidates = Math.max(10, Math.min(500, isNaN(parsedCandidates) ? 100 : parsedCandidates));
 
   // 1. Generate embedding for the search query
   const queryEmbedding = await getEmbedding(queryText);
 
   // 2. Perform MongoDB Atlas Vector Search using aggregation
-  return await Chunk.aggregate([
+  const pipeline = [
     {
       $vectorSearch: {
         index: 'vector_index',
         path: 'embedding',
         queryVector: queryEmbedding,
-        numCandidates: 100,
+        numCandidates: searchCandidates,
         limit: searchLimit
       }
     },
@@ -282,7 +288,19 @@ const searchChunks = async (queryText, limit = 5) => {
         score: { $meta: 'vectorSearchScore' }
       }
     }
-  ]);
+  ];
+
+  // Apply similarity threshold if specified
+  const parsedMinSimilarity = parseFloat(minSimilarity);
+  if (!isNaN(parsedMinSimilarity) && parsedMinSimilarity > 0) {
+    pipeline.push({
+      $match: {
+        score: { $gte: parsedMinSimilarity }
+      }
+    });
+  }
+
+  return await Chunk.aggregate(pipeline);
 };
 
 module.exports = {

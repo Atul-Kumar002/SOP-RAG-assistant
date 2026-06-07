@@ -76,23 +76,23 @@ async function runSearchMockTests() {
     }
     console.log('✅ Test 1 Passed: default limit successfully set to 5.\n');
 
-    // Test 2: Under-bound limit clamping (limit = 2 should clamp to 3)
-    console.log('[Test 2] Testing searchChunks with limit = 2 (should clamp to 3)...');
-    await searchChunks('refund instructions', 2);
+    // Test 2: Under-bound limit clamping (limit = 0 should clamp to 1)
+    console.log('[Test 2] Testing searchChunks with limit = 0 (should clamp to 1)...');
+    await searchChunks('refund instructions', 0);
     vectorSearchStage = lastPipeline[0].$vectorSearch;
-    if (vectorSearchStage.limit !== 3) {
-      throw new Error(`Test 2 Failed: Expected limit to clamp to 3, got ${vectorSearchStage.limit}`);
+    if (vectorSearchStage.limit !== 1) {
+      throw new Error(`Test 2 Failed: Expected limit to clamp to 1, got ${vectorSearchStage.limit}`);
     }
-    console.log('✅ Test 2 Passed: limit 2 successfully clamped to minimum of 3.\n');
+    console.log('✅ Test 2 Passed: limit 0 successfully clamped to minimum of 1.\n');
 
-    // Test 3: Over-bound limit clamping (limit = 10 should clamp to 5)
-    console.log('[Test 3] Testing searchChunks with limit = 10 (should clamp to 5)...');
-    await searchChunks('refund instructions', 10);
+    // Test 3: Over-bound limit clamping (limit = 25 should clamp to 20)
+    console.log('[Test 3] Testing searchChunks with limit = 25 (should clamp to 20)...');
+    await searchChunks('refund instructions', 25);
     vectorSearchStage = lastPipeline[0].$vectorSearch;
-    if (vectorSearchStage.limit !== 5) {
-      throw new Error(`Test 3 Failed: Expected limit to clamp to 5, got ${vectorSearchStage.limit}`);
+    if (vectorSearchStage.limit !== 20) {
+      throw new Error(`Test 3 Failed: Expected limit to clamp to 20, got ${vectorSearchStage.limit}`);
     }
-    console.log('✅ Test 3 Passed: limit 10 successfully clamped to maximum of 5.\n');
+    console.log('✅ Test 3 Passed: limit 25 successfully clamped to maximum of 20.\n');
 
     // Test 4: Valid limit within range (limit = 4 should remain 4)
     console.log('[Test 4] Testing searchChunks with limit = 4 (should remain 4)...');
@@ -122,6 +122,27 @@ async function runSearchMockTests() {
       throw new Error(`Test 5 Failed: Projection stage mismatch. Got: ${JSON.stringify(projectionStage)}`);
     }
     console.log('✅ Test 5 Passed: projection schema matches specification.\n');
+
+    // Test 6: Verify numCandidates config propagation
+    console.log('[Test 6] Testing searchChunks with custom numCandidates...');
+    await searchChunks('refund instructions', 5, 0.0, 150);
+    vectorSearchStage = lastPipeline[0].$vectorSearch;
+    if (vectorSearchStage.numCandidates !== 150) {
+      throw new Error(`Test 6 Failed: Expected numCandidates to be 150, got ${vectorSearchStage.numCandidates}`);
+    }
+    console.log('✅ Test 6 Passed: custom numCandidates successfully set to 150.\n');
+
+    // Test 7: Verify similarity threshold $match stage addition
+    console.log('[Test 7] Testing searchChunks with similarity threshold (minSimilarity)...');
+    await searchChunks('refund instructions', 5, 0.82);
+    if (!lastPipeline || lastPipeline.length !== 3) {
+      throw new Error(`Test 7 Failed: Expected pipeline length 3, got ${lastPipeline?.length}`);
+    }
+    const matchStage = lastPipeline[2].$match;
+    if (!matchStage || !matchStage.score || matchStage.score.$gte !== 0.82) {
+      throw new Error(`Test 7 Failed: Expected score $gte 0.82, got ${JSON.stringify(matchStage)}`);
+    }
+    console.log('✅ Test 7 Passed: minSimilarity successfully added $match stage to pipeline.\n');
 
     console.log('==================================================');
     console.log('🎉 All $vectorSearch Mock Pipeline Tests Passed!');

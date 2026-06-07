@@ -27,6 +27,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const aiAnswerCard = document.getElementById('aiAnswerCard');
   const aiAnswerContent = document.getElementById('aiAnswerContent');
 
+  // Relevance Tuning UI Elements
+  const tuningToggle = document.getElementById('tuningToggle');
+  const tuningContent = document.getElementById('tuningContent');
+  const similarityThresholdInput = document.getElementById('similarityThresholdInput');
+  const similarityThresholdVal = document.getElementById('similarityThresholdVal');
+  const limitInput = document.getElementById('limitInput');
+  const limitVal = document.getElementById('limitVal');
+  const numCandidatesInput = document.getElementById('numCandidatesInput');
+  const numCandidatesVal = document.getElementById('numCandidatesVal');
+
   let activeFile = null;
   let allDocuments = [];
 
@@ -80,6 +90,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const term = e.target.value.toLowerCase();
     const filtered = allDocuments.filter(doc => doc.name.toLowerCase().includes(term));
     renderTable(filtered);
+  });
+
+  // Relevance Tuning Accordion Toggle
+  tuningToggle.addEventListener('click', () => {
+    const isExpanded = tuningContent.style.display !== 'none';
+    if (isExpanded) {
+      tuningContent.style.display = 'none';
+      tuningToggle.classList.remove('active');
+    } else {
+      tuningContent.style.display = 'flex';
+      tuningToggle.classList.add('active');
+    }
+  });
+
+  // Real-time slider feedback listeners
+  similarityThresholdInput.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value).toFixed(2);
+    similarityThresholdVal.textContent = val;
+  });
+
+  limitInput.addEventListener('input', (e) => {
+    limitVal.textContent = e.target.value;
+  });
+
+  numCandidatesInput.addEventListener('input', (e) => {
+    numCandidatesVal.textContent = e.target.value;
   });
 
   // SOP Query Assistant Search Events
@@ -381,12 +417,21 @@ document.addEventListener('DOMContentLoaded', () => {
     searchResultsList.innerHTML = '';
 
     try {
+      const limit = parseInt(limitInput.value);
+      const similarityThreshold = parseFloat(similarityThresholdInput.value);
+      const numCandidates = parseInt(numCandidatesInput.value);
+
       const res = await fetch('/api/docs/ask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ query, limit: 5 })
+        body: JSON.stringify({ 
+          query, 
+          limit, 
+          similarityThreshold, 
+          numCandidates 
+        })
       });
 
       if (!res.ok) {
