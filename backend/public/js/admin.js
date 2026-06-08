@@ -457,7 +457,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Render AI Assistant Answer
     if (data.answer) {
       aiAnswerCard.style.display = 'block';
-      aiAnswerContent.innerHTML = formatAnswer(data.answer);
+      if (data.responseChunks && data.responseChunks.length > 0) {
+        aiAnswerContent.innerHTML = renderAnswerWithCitations(data.responseChunks);
+      } else {
+        aiAnswerContent.innerHTML = formatAnswer(data.answer);
+      }
     } else {
       aiAnswerCard.style.display = 'none';
     }
@@ -475,9 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    sources.forEach(source => {
+    sources.forEach((source, index) => {
       const div = document.createElement('div');
       div.className = 'search-result-item';
+      div.id = `source-card-${index + 1}`;
+      div.setAttribute('data-source-index', index + 1);
 
       const matchPercent = typeof source.score === 'number' ? `${(source.score * 100).toFixed(1)}% match` : 'N/A';
       const sectionInfo = source.sectionRef || 'Introduction';
@@ -502,6 +508,142 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     lucide.createIcons();
+
+    // Bind interaction events for citation mapping
+    if (data.responseChunks && data.responseChunks.length > 0) {
+      bindInteractiveCitations(data.responseChunks);
+    }
+  }
+
+  // Helper: Renders structured chunks with citation badges and proper list wrappers
+  function renderAnswerWithCitations(responseChunks) {
+    const container = document.createElement('div');
+    let currentList = null;
+    let currentListType = null; // 'ul' or 'ol'
+
+    responseChunks.forEach((chunk, chunkIdx) => {
+      const text = chunk.text;
+      const isBullet = text.startsWith('* ') || text.startsWith('- ');
+      const isNumbered = /^\d+\.\s/.test(text);
+
+      if (isBullet || isNumbered) {
+        const listType = isBullet ? 'ul' : 'ol';
+        const cleanText = isBullet ? text.substring(2) : text.replace(/^\d+\.\s/, '');
+
+        if (!currentList || currentListType !== listType) {
+          if (currentList) {
+            container.appendChild(currentList);
+          }
+          currentList = document.createElement(listType);
+          currentListType = listType;
+        }
+
+        const li = document.createElement('li');
+        const chunkSpan = document.createElement('span');
+        chunkSpan.className = 'response-chunk';
+        chunkSpan.setAttribute('data-chunk-index', chunkIdx);
+        chunkSpan.innerHTML = formatTextBold(cleanText);
+
+        appendCitationBadges(chunkSpan, chunk.citations);
+        li.appendChild(chunkSpan);
+        currentList.appendChild(li);
+      } else {
+        if (currentList) {
+          container.appendChild(currentList);
+          currentList = null;
+          currentListType = null;
+        }
+
+        const p = document.createElement('p');
+        const chunkSpan = document.createElement('span');
+        chunkSpan.className = 'response-chunk';
+        chunkSpan.setAttribute('data-chunk-index', chunkIdx);
+        chunkSpan.innerHTML = formatTextBold(text);
+
+        appendCitationBadges(chunkSpan, chunk.citations);
+        p.appendChild(chunkSpan);
+        container.appendChild(p);
+      }
+    });
+
+    if (currentList) {
+      container.appendChild(currentList);
+    }
+
+    return container.innerHTML;
+  }
+
+  // Helper: Appends superscript citation badges to a response chunk
+  function appendCitationBadges(element, citations) {
+    if (!citations || citations.length === 0) return;
+    citations.forEach(cit => {
+      const badge = document.createElement('span');
+      badge.className = 'citation-badge';
+      badge.setAttribute('data-ref', cit.sourceIndex);
+      badge.textContent = cit.sourceIndex;
+      badge.title = `${cit.documentName} (Page ${cit.pageNumber})`;
+      element.appendChild(badge);
+    });
+  }
+
+  // Helper: Bold formatting replacement
+  function formatTextBold(text) {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  // Binds hover and click event handlers to chunks and citation badges
+  function bindInteractiveCitations(responseChunks) {
+    const chunks = document.querySelectorAll('.response-chunk');
+    const badges = document.querySelectorAll('.citation-badge');
+
+    // Highlight source references on chunk hover
+    chunks.forEach(chunk => {
+      chunk.addEventListener('mouseenter', () => {
+        const chunkIdx = parseInt(chunk.getAttribute('data-chunk-index'), 10);
+        const chunkData = responseChunks[chunkIdx];
+        if (chunkData && chunkData.citations) {
+          chunkData.citations.forEach(cit => {
+            const sourceCard = document.getElementById(`source-card-${cit.sourceIndex}`);
+            if (sourceCard) {
+              sourceCard.classList.add('highlighted-source');
+            }
+          });
+        }
+      });
+
+      chunk.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.search-result-item').forEach(card => {
+          card.classList.remove('highlighted-source');
+        });
+      });
+    });
+
+    // Scroll and flash source reference on badge click
+    badges.forEach(badge => {
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const refIndex = badge.getAttribute('data-ref');
+        const sourceCard = document.getElementById(`source-card-${refIndex}`);
+        if (sourceCard) {
+          // Smooth scroll to card
+          sourceCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Flash animation
+          sourceCard.classList.remove('flash-source');
+          void sourceCard.offsetWidth; // Trigger reflow
+          sourceCard.classList.add('flash-source');
+
+          // Add a glow highlight temporarily
+          document.querySelectorAll('.search-result-item').forEach(card => {
+            card.classList.remove('highlighted-source');
+          });
+          sourceCard.classList.add('highlighted-source');
+          setTimeout(() => {
+            sourceCard.classList.remove('highlighted-source');
+          }, 2500);
+        }
+      });
+    });
   }
 
   // Helper: Format raw LLM text/markdown to beautiful HTML paragraphs and lists

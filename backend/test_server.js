@@ -112,8 +112,8 @@ GenerativeModel.prototype.generateContent = async function(request) {
   return {
     response: {
       text: () => `Based on the Refund Policy SOP:
-* **Return Window**: You can return standard items within 14 days of receipt, provided they are in original condition with original packaging.
-* **Refund Process**: To request a refund, submit a ticket in our portal. Refunds are processed back to your original payment method in **10 business days**.`
+* **Return Window**: You can return standard items within 14 days of receipt, provided they are in original condition with original packaging [Source Reference 1].
+* **Refund Process**: To request a refund, submit a ticket in our portal. Refunds are processed back to your original payment method in **10 business days** [Source Reference 2].`
     }
   };
 };

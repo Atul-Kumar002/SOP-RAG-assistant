@@ -123,6 +123,27 @@ async function runTests() {
     }
     console.log('✅ Test 4 Passed.\n');
 
+    // ----------------------------------------------------
+    // Test 5: Integration - parseResponseChunks on mock response text
+    // ----------------------------------------------------
+    console.log('[Test 5] Testing parseResponseChunks integration...');
+    const { parseResponseChunks } = require('./services/citationService');
+    const mockLLMResponse = 'Refund requests are processed in 10 business days [Source Reference 1]. Refund approvals require manager signoff [Source Reference 2].';
+    
+    const parsedChunks = parseResponseChunks(mockLLMResponse, formatted);
+    console.log('Parsed integration chunks:', JSON.stringify(parsedChunks, null, 2));
+    
+    if (parsedChunks.length !== 2) {
+      throw new Error(`Test 5 Failed: Expected 2 parsed chunks, got ${parsedChunks.length}`);
+    }
+    if (parsedChunks[0].citations[0].sourceIndex !== 1) {
+      throw new Error('Test 5 Failed: First chunk should map to sourceIndex 1');
+    }
+    if (parsedChunks[1].citations[0].sourceIndex !== 2) {
+      throw new Error('Test 5 Failed: Second chunk should map to sourceIndex 2');
+    }
+    console.log('✅ Test 5 Passed.\n');
+
     console.log('==================================================');
     console.log('🎉 All Context Builder & LLM Q&A Tests Passed!');
     console.log('==================================================');

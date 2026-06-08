@@ -11,6 +11,7 @@ const { getEmbedding, getBatchEmbeddings } = require('../services/embeddingServi
 const storageService = require('../services/storageService');
 const { buildContext, formatSources } = require('../services/contextBuilderService');
 const { generateAnswer } = require('../services/assistantService');
+const { parseResponseChunks } = require('../services/citationService');
 
 // Ensure upload directory exists for temporary Multer files
 const uploadDir = path.join(__dirname, '../uploads');
@@ -253,8 +254,12 @@ router.post('/ask', async (req, res) => {
       answerText = `I failed to generate an answer due to an AI service error: ${genError.message}. However, here are the matching source references retrieved from the documents.`;
     }
 
+    // Generate traceable response chunks mapped to sources
+    const responseChunks = parseResponseChunks(answerText, formattedSources);
+
     res.json({
       answer: answerText,
+      responseChunks: responseChunks,
       sources: formattedSources,
       context: structuredContext
     });

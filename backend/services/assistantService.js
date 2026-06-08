@@ -36,6 +36,10 @@ Rules:
 2. If the context does not contain enough information to answer the question, state: "I cannot find the answer in the provided SOP documents."
 3. Do not assume or extrapolate beyond the provided text.
 4. Keep the answer clear, structured, and professional.
+5. EVERY statement, claim, sentence, or list item you generate MUST be explicitly cited. Append the exact citation marker \`[Source Reference X]\` (where X is the 1-based index of the source in the context) at the end of the statement, sentence, or list item that uses that source. If a sentence uses information from multiple sources, append multiple citation markers (e.g. \`[Source Reference 1] [Source Reference 2]\`). Do not use any citation markers that are not in the context.
+
+Example of citation placement:
+"According to the handbook, employees are entitled to 15 days of paid annual leave [Source Reference 1]. However, approval from the department head is required at least two weeks in advance [Source Reference 2]."
 
 Structured Context:
 ${structuredContext}
