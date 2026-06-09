@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Make the request
-    xhr.open('POST', '/api/docs/upload', true);
+    xhr.open('POST', '/api/admin/upload', true);
     
     // UI Updates
     progressWrapper.style.display = 'block';
@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadDocuments() {
     showTableLoading(true);
     try {
-      const res = await fetch('/api/docs');
+      const res = await fetch('/api/admin/documents');
       if (!res.ok) throw new Error('Failed to retrieve catalog');
       
       allDocuments = await res.json();
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function confirmAndDeleteDocument(doc) {
     if (confirm(`Are you sure you want to delete "${doc.name}"? This will delete all chunks and the physical file.`)) {
       try {
-        const res = await fetch(`/api/docs/${doc.id || doc._id}`, {
+        const res = await fetch(`/api/admin/documents/${doc.id || doc._id}`, {
           method: 'DELETE'
         });
         
@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const similarityThreshold = parseFloat(similarityThresholdInput.value);
       const numCandidates = parseInt(numCandidatesInput.value);
 
-      const res = await fetch('/api/docs/ask', {
+      const res = await fetch('/api/chat/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

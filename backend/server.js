@@ -4,6 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/db');
 const docsRouter = require('./routes/docs');
+const chatRouter = require('./routes/chat');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 
@@ -19,6 +21,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/api/docs', docsRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/admin', adminRouter);
 
 // Base route for status check
 app.get('/health', (req, res) => {
