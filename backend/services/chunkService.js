@@ -290,6 +290,25 @@ const searchChunks = async (queryText, limit = 5, minSimilarity = 0.0, numCandid
     }
   ];
 
+  // Print the MongoDB query to the console
+  console.log('\n--- [MongoDB Vector Search Query] ---');
+  console.log(JSON.stringify({
+    collection: 'chunks',
+    pipeline: [
+      {
+        $vectorSearch: {
+          index: 'vector_index',
+          path: 'embedding',
+          queryVector: `[Array of ${queryEmbedding.length} floats. First 3 components: ${queryEmbedding.slice(0, 3).join(', ')}, ...]`,
+          numCandidates: searchCandidates,
+          limit: searchLimit
+        }
+      },
+      ...pipeline.slice(1)
+    ]
+  }, null, 2));
+  console.log('-------------------------------------\n');
+
   // Apply similarity threshold if specified
   const parsedMinSimilarity = parseFloat(minSimilarity);
   if (!isNaN(parsedMinSimilarity) && parsedMinSimilarity > 0) {

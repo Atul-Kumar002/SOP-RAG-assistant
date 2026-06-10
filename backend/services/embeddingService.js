@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+const EMBEDDING_MODEL = 'gemini-embedding-001';
 let genAI;
 
 /**
@@ -16,7 +17,7 @@ const getClient = () => {
 };
 
 /**
- * Generates a vector embedding for a single text string using text-embedding-004.
+ * Generates a vector embedding for a single text string using gemini-embedding-001.
  *
  * @param {string} text - The input text to embed.
  * @returns {Promise<Array<number>>} - A 768-dimensional array of floats.
@@ -24,7 +25,7 @@ const getClient = () => {
 const getEmbedding = async (text) => {
   try {
     const client = getClient();
-    const model = client.getGenerativeModel({ model: 'text-embedding-004' });
+    const model = client.getGenerativeModel({ model: EMBEDDING_MODEL });
     const result = await model.embedContent({
       content: { parts: [{ text }] },
       outputDimensionality: 768,
@@ -49,7 +50,7 @@ const getEmbedding = async (text) => {
  */
 const getBatchEmbeddings = async (texts) => {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: 'text-embedding-004' });
+  const model = client.getGenerativeModel({ model: EMBEDDING_MODEL });
   const embeddings = [];
   const BATCH_SIZE = 20;
 

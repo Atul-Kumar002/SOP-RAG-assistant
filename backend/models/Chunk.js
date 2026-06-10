@@ -19,7 +19,7 @@ const ChunkSchema = new mongoose.Schema({
     required: true,
   },
   embedding: {
-    type: [Number], // Array of floats, dimension 768 for text-embedding-004
+    type: [Number], // Array of floats, dimension 768 for gemini-embedding-001 (or configured outputDimensionality)
     required: true,
   },
   metadata: {

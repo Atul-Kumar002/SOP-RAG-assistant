@@ -25,8 +25,8 @@ const getClient = () => {
 const generateAnswer = async (query, structuredContext) => {
   try {
     const client = getClient();
-    // Use gemini-1.5-flash as it is fast, stable, and highly capable for RAG tasks
-    const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Use gemini-2.5-flash as it is fast, stable, and highly capable for RAG tasks
+    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `You are a professional enterprise SOP Query Assistant.
 Your task is to answer the user's question accurately using ONLY the standard operating procedure content in the structured context below.
