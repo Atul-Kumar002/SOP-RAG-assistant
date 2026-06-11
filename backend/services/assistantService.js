@@ -23,12 +23,34 @@ const getClient = () => {
  * @returns {Promise<string>} - The AI-generated answer
  */
 const generateAnswer = async (query, structuredContext) => {
-  try {
-    const client = getClient();
-    // Use gemini-2.5-flash as it is fast, stable, and highly capable for RAG tasks
-    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const modelsToTry = [
+    'gemini-2.5-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite'
+  ];
+  
+  if (process.env.GEMINI_MODEL) {
+    if (!modelsToTry.includes(process.env.GEMINI_MODEL)) {
+      modelsToTry.unshift(process.env.GEMINI_MODEL);
+    } else {
+      const idx = modelsToTry.indexOf(process.env.GEMINI_MODEL);
+      modelsToTry.splice(idx, 1);
+      modelsToTry.unshift(process.env.GEMINI_MODEL);
+    }
+  }
 
-    const prompt = `You are a professional enterprise SOP Query Assistant.
+  let lastError = null;
+
+  for (const modelName of modelsToTry) {
+    try {
+      console.log(`[Assistant Service] Attempting AI generation with model: ${modelName}`);
+      const client = getClient();
+      const model = client.getGenerativeModel({ model: modelName });
+
+      const prompt = `You are a professional enterprise SOP Query Assistant.
 Your task is to answer the user's question accurately using ONLY the standard operating procedure content in the structured context below.
 
 Rules:
@@ -49,23 +71,28 @@ ${query}
 
 Answer:`;
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      });
 
-    if (result && result.response) {
-      // Use the text() helper method from the Gemini SDK response object
-      const responseText = typeof result.response.text === 'function' 
-        ? result.response.text() 
-        : result.response.text;
-      
-      return responseText.trim();
+      if (result && result.response) {
+        // Use the text() helper method from the Gemini SDK response object
+        const responseText = typeof result.response.text === 'function' 
+          ? result.response.text() 
+          : result.response.text;
+        
+        console.log(`[Assistant Service] Successfully generated answer using model: ${modelName}`);
+        return responseText.trim();
+      }
+      throw new Error('Invalid response format received from Generative AI API.');
+    } catch (error) {
+      console.warn(`[Assistant Service] Generation failed for model ${modelName}:`, error.message || error);
+      lastError = error;
     }
-    throw new Error('Invalid response format received from Generative AI API.');
-  } catch (error) {
-    console.error('Error generating AI answer:', error);
-    throw new Error(`AI Answer Generation Failed: ${error.message}`);
   }
+
+  // If all models failed, throw the last error
+  throw new Error(`AI Answer Generation Failed: ${lastError ? lastError.message : 'All models failed to respond'}`);
 };
 
 module.exports = {

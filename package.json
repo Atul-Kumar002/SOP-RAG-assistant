@@ -1,0 +1,12 @@
+{
+  "name": "opsmind-ai-root",
+  "version": "1.0.0",
+  "description": "Enterprise SOP Knowledge Base Manager Root Orchestrator",
+  "private": true,
+  "scripts": {
+    "install:backend": "npm install --prefix backend",
+    "backend": "npm start --prefix backend",
+    "frontend": "node serve-frontend.js",
+    "dev": "npx -y concurrently -n \"backend,frontend\" -c \"cyan,magenta\" \"npm run backend\" \"npm run frontend\""
+  }
+}

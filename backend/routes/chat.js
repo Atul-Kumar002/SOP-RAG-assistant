@@ -30,7 +30,17 @@ router.post('/query', async (req, res) => {
       answerText = await generateAnswer(query, structuredContext);
     } catch (genError) {
       console.error('[Chat Query] AI answer generation failed:', genError);
-      answerText = `I failed to generate an answer due to an AI service error: ${genError.message}. However, here are the matching source references retrieved from the documents.`;
+      let errorDetails = genError.message || '';
+      if (errorDetails.includes('Quota exceeded') || errorDetails.includes('429')) {
+        errorDetails = 'AI service quota exceeded (the daily free-tier limit has been reached).';
+      } else {
+        // Strip out long JSON payloads or internal trace info
+        errorDetails = errorDetails.replace(/\[\{"@type":.*/g, '').trim();
+        if (errorDetails.length > 150) {
+          errorDetails = errorDetails.substring(0, 147) + '...';
+        }
+      }
+      answerText = `⚠️ **AI Service Error:** We failed to generate a synthesized answer because the AI service responded with: "${errorDetails}"\n\nBelow are the matching source references retrieved from the documents.`;
     }
 
     // Generate traceable response chunks mapped to sources
