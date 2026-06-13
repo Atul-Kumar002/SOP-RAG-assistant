@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname)
-    ? (window.location.port === '5000' ? '' : 'http://localhost:5000')
-    : '';
+  const API_BASE = window.location.port === '5000'
+    ? ''
+    : `${window.location.protocol === 'file:' ? 'http:' : window.location.protocol}//${window.location.hostname || 'localhost'}:5000`;
 
   // Elements
   const dropzone = document.getElementById('dropzone');
@@ -49,6 +49,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load documents on init
   loadDocuments();
+
+  // Server Status Checker
+  async function checkServerStatus() {
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    if (!statusDot || !statusText) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/health`);
+      if (res.ok) {
+        statusDot.style.backgroundColor = 'var(--success)';
+        statusDot.style.boxShadow = '0 0 10px var(--success)';
+        statusText.textContent = 'Server Status: Online';
+      } else {
+        throw new Error('Offline');
+      }
+    } catch (e) {
+      statusDot.style.backgroundColor = 'var(--danger)';
+      statusDot.style.boxShadow = '0 0 10px var(--danger)';
+      statusText.textContent = 'Server Status: Offline';
+    }
+  }
+
+  // Initial check and periodic status check every 10 seconds
+  checkServerStatus();
+  setInterval(checkServerStatus, 10000);
 
   // Dropzone Events
   dropzone.addEventListener('click', () => fileInput.click());
@@ -252,6 +278,14 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(error);
       showToast('Fetch Error', 'Failed to retrieve ingested documents list.', 'error');
       showTableLoading(false);
+      
+      // Update UI for failure state
+      tableContainer.style.display = 'none';
+      emptyDocs.style.display = 'flex';
+      const emptyTitle = emptyDocs.querySelector('h3');
+      const emptyDesc = emptyDocs.querySelector('p');
+      if (emptyTitle) emptyTitle.textContent = 'Connection Error';
+      if (emptyDesc) emptyDesc.textContent = 'Failed to connect to the backend server. Please verify the API is running.';
     }
   }
 
@@ -262,6 +296,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (docs.length === 0) {
       tableContainer.style.display = 'none';
       emptyDocs.style.display = 'flex';
+      
+      // Reset empty state text in case it was modified by an error
+      const emptyTitle = emptyDocs.querySelector('h3');
+      const emptyDesc = emptyDocs.querySelector('p');
+      if (emptyTitle) emptyTitle.textContent = 'No Documents Found';
+      if (emptyDesc) emptyDesc.textContent = 'Upload your first PDF document to start indexing and generation.';
       return;
     }
     
@@ -546,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const chunkSpan = document.createElement('span');
         chunkSpan.className = 'response-chunk';
         chunkSpan.setAttribute('data-chunk-index', chunkIdx);
-        chunkSpan.innerHTML = formatTextBold(cleanText);
+        chunkSpan.innerHTML = formatTextBold(escapeHtml(cleanText));
 
         appendCitationBadges(chunkSpan, chunk.citations);
         li.appendChild(chunkSpan);
@@ -562,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const chunkSpan = document.createElement('span');
         chunkSpan.className = 'response-chunk';
         chunkSpan.setAttribute('data-chunk-index', chunkIdx);
-        chunkSpan.innerHTML = formatTextBold(text);
+        chunkSpan.innerHTML = formatTextBold(escapeHtml(text));
 
         appendCitationBadges(chunkSpan, chunk.citations);
         p.appendChild(chunkSpan);

@@ -143,6 +143,36 @@ async function runCitationServiceTests() {
     }
     console.log('✅ Test 5 Passed.\n');
 
+    // ----------------------------------------------------
+    // Test 6: Case Insensitive and Plus (+) Bullet Matches
+    // ----------------------------------------------------
+    console.log('[Test 6] Testing case-insensitive matching and plus (+) bullets...');
+    const text6 = `
++ Plus item one uses [source reference 1]
++ Plus item two uses [ref 2]
+    `.trim();
+    const result6 = parseResponseChunks(text6, mockSources);
+
+    if (result6.length !== 2) {
+      throw new Error(`Expected 2 chunks, got ${result6.length}`);
+    }
+    if (!result6[0].isListItem || !result6[1].isListItem) {
+      throw new Error('Expected chunks to be flagged as list items');
+    }
+    if (result6[0].text !== '+ Plus item one uses') {
+      throw new Error(`Unexpected text cleaning: "${result6[0].text}"`);
+    }
+    if (result6[0].citations[0].sourceIndex !== 1) {
+      throw new Error(`Expected sourceIndex 1, got ${result6[0].citations[0].sourceIndex}`);
+    }
+    if (result6[1].text !== '+ Plus item two uses') {
+      throw new Error(`Unexpected text cleaning: "${result6[1].text}"`);
+    }
+    if (result6[1].citations[0].sourceIndex !== 2) {
+      throw new Error(`Expected sourceIndex 2, got ${result6[1].citations[0].sourceIndex}`);
+    }
+    console.log('✅ Test 6 Passed.\n');
+
     console.log('==================================================');
     console.log('🎉 All Citation Service Unit Tests Passed!');
     console.log('==================================================');

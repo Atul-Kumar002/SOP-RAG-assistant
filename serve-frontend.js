@@ -17,8 +17,8 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  // Decode URL in case of spaces or special characters
-  let reqUrl = decodeURIComponent(req.url);
+  // Decode URL and strip query parameters and hash fragments
+  let reqUrl = decodeURIComponent(req.url.split('?')[0].split('#')[0]);
   
   // Safe resolution
   let filePath = path.join(PUBLIC_DIR, reqUrl === '/' ? 'index.html' : reqUrl);

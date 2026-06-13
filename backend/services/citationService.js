@@ -13,8 +13,8 @@
  */
 const processSegment = (segmentText, formattedSources) => {
   const citations = [];
-  // Matches [Source Reference X], [Ref X], or [X]
-  const citationRegex = /\[(?:Source Reference\s+|Ref\s+)?(\d+)\]/g;
+  // Matches [Source Reference X], [Ref X], or [X] (case-insensitive)
+  const citationRegex = /\[(?:Source Reference\s+|Ref\s+)?(\d+)\]/gi;
   let match;
 
   // Find all unique citations in this segment
@@ -65,7 +65,7 @@ const parseResponseChunks = (answerText, formattedSources) => {
     if (!trimmed) continue;
 
     // Check if line is a list item (bullet or numbered list)
-    const isListItem = trimmed.startsWith('* ') || trimmed.startsWith('- ') || /^\d+\.\s/.test(trimmed);
+    const isListItem = trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('+ ') || /^\d+\.\s/.test(trimmed);
 
     if (isListItem) {
       // Process list items as single chunks to preserve list structure
