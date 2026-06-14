@@ -24,6 +24,7 @@ const getClient = () => {
  */
 const generateAnswer = async (query, structuredContext) => {
   const modelsToTry = [
+    'gemini-1.5-flash',
     'gemini-2.5-flash',
     'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
@@ -53,11 +54,11 @@ const generateAnswer = async (query, structuredContext) => {
       const prompt = `You are a professional enterprise SOP Query Assistant.
 Your task is to answer the user's question accurately using ONLY the standard operating procedure content in the structured context below.
 
-Rules:
-1. Ground your response strictly in the provided context references.
-2. If the context does not contain enough information to answer the question, state: "I cannot find the answer in the provided SOP documents."
-3. Do not assume or extrapolate beyond the provided text.
-4. Keep the answer clear, structured, and professional.
+Rules & Constraints:
+1. Ground your response strictly in the provided context references. Do not use external knowledge, assumptions, or extrapolations.
+2. If the context does not contain enough information to answer the question, state exactly: "I don't know based on the provided SOPs." and absolutely nothing else. Do not try to write a response or add citation markers if you cannot find the answer.
+3. Keep the answer clear, structured, and professional.
+4. Do not make up facts or hallucinate source references. Everything in your response must be traceable to the provided context.
 5. EVERY statement, claim, sentence, or list item you generate MUST be explicitly cited. Append the exact citation marker \`[Source Reference X]\` (where X is the 1-based index of the source in the context) at the end of the statement, sentence, or list item that uses that source. If a sentence uses information from multiple sources, append multiple citation markers (e.g. \`[Source Reference 1] [Source Reference 2]\`). Do not use any citation markers that are not in the context.
 
 Example of citation placement:
