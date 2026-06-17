@@ -98,13 +98,28 @@
 
         <!-- Search Section -->
         <section class="card search-card">
-          <div class="card-header">
-            <div class="header-icon purple-glow">
-              <i data-lucide="search-code"></i>
+          <div class="card-header chat-header-controls">
+            <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+              <div class="header-icon purple-glow">
+                <i data-lucide="message-square"></i>
+              </div>
+              <div>
+                <h2>SOP Query Assistant</h2>
+                <p>Multi-turn Conversational RAG</p>
+              </div>
             </div>
-            <div>
-              <h2>SOP Query Assistant</h2>
-              <p>Search across SOP files using vector similarity</p>
+            <div class="chat-actions">
+              <button class="btn-icon" id="newChatBtn" title="Start New Chat">
+                <i data-lucide="plus"></i>
+              </button>
+              <div class="chat-sessions-dropdown-wrapper">
+                <button class="btn-icon" id="toggleSessionsBtn" title="Recent Chats">
+                  <i data-lucide="history"></i>
+                </button>
+                <div class="chat-sessions-menu" id="chatSessionsMenu" style="display: none;">
+                  <!-- Dynamically populated conversations list -->
+                </div>
+              </div>
             </div>
           </div>
 
@@ -148,28 +163,28 @@
               </div>
             </div>
 
-            <div class="search-input-group">
-              <textarea id="searchQueryInput" placeholder="Ask a question about your SOPs (e.g. What is the refund policy?)" rows="3" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
-              <button class="btn btn-primary btn-block" id="searchBtn">
-                Ask Assistant
-              </button>
+            <!-- Conversational Messages Container -->
+            <div class="chat-messages-container" id="chatMessagesContainer">
+              <div class="chat-welcome-message">
+                <i data-lucide="sparkles" class="welcome-icon"></i>
+                <h3>Welcome to OpsMind Assistant</h3>
+                <p>Ask a question about your standard operating procedures. The assistant will search the knowledge base and reply with interactive citations.</p>
+              </div>
             </div>
 
-            <!-- Search Results -->
-            <div class="search-results-wrapper" id="searchResultsWrapper" style="display: none;">
-              <!-- AI Assistant Answer Card -->
-              <div class="ai-answer-card" id="aiAnswerCard" style="display: none;">
-                <div class="ai-answer-header">
-                  <i data-lucide="sparkles"></i>
-                  <h3>AI Assistant Answer</h3>
-                </div>
-                <div class="ai-answer-content" id="aiAnswerContent">
-                  <!-- Dynamically populated -->
-                </div>
+            <div class="chat-input-group">
+              <textarea id="searchQueryInput" placeholder="Ask a question about your SOPs..." rows="1" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
+              <div class="chat-input-actions">
+                <button class="btn btn-primary" id="searchBtn">
+                  <i data-lucide="send"></i>
+                </button>
               </div>
+            </div>
 
+            <!-- Search Results / Source Catalog Mapping -->
+            <div class="search-results-wrapper" id="searchResultsWrapper" style="display: none;">
               <div class="search-results-header">
-                <h3>Query Sources</h3>
+                <h3>Sources for Active Response</h3>
                 <span class="results-count" id="resultsCount">0 matches</span>
               </div>
               <div class="search-results-list" id="searchResultsList">

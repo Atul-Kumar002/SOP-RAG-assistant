@@ -28,8 +28,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchResultsWrapper = document.getElementById('searchResultsWrapper');
   const resultsCount = document.getElementById('resultsCount');
   const searchResultsList = document.getElementById('searchResultsList');
-  const aiAnswerCard = document.getElementById('aiAnswerCard');
-  const aiAnswerContent = document.getElementById('aiAnswerContent');
+  const chatMessagesContainer = document.getElementById('chatMessagesContainer');
+  const newChatBtn = document.getElementById('newChatBtn');
+  const toggleSessionsBtn = document.getElementById('toggleSessionsBtn');
+  const chatSessionsMenu = document.getElementById('chatSessionsMenu');
+
+  let activeConversationId = null;
+  let recentConversations = [];
 
   // Relevance Tuning UI Elements
   const tuningToggle = document.getElementById('tuningToggle');
@@ -47,8 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize Lucide Icons
   lucide.createIcons();
 
-  // Load documents on init
+  // Load documents and conversations on init
   loadDocuments();
+  loadConversations();
 
   // Server Status Checker
   async function checkServerStatus() {
@@ -150,13 +156,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // SOP Query Assistant Search Events
   searchBtn.addEventListener('click', () => {
-    performSemanticSearch();
+    performConversationalSearch();
   });
 
   searchQueryInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      performSemanticSearch();
+      performConversationalSearch();
+    }
+  });
+
+  newChatBtn.addEventListener('click', () => {
+    startNewChat();
+  });
+
+  toggleSessionsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = chatSessionsMenu.style.display !== 'none';
+    chatSessionsMenu.style.display = isVisible ? 'none' : 'block';
+  });
+
+  // Close sessions menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (chatSessionsMenu.style.display !== 'none' && !chatSessionsMenu.contains(e.target) && e.target !== toggleSessionsBtn) {
+      chatSessionsMenu.style.display = 'none';
     }
   });
 
@@ -446,78 +469,168 @@ document.addEventListener('DOMContentLoaded', () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
 
-  // Vector Search & AI Q&A Assistant Implementation
-  async function performSemanticSearch() {
+  // Vector Search & AI Q&A Assistant Conversational Implementation
+  async function performConversationalSearch() {
     const query = searchQueryInput.value.trim();
     if (!query) {
       showToast('Empty Query', 'Please enter a question or keywords to search.', 'info');
       return;
     }
 
+    // 1. If no active conversation, create one first synchronously
+    if (!activeConversationId) {
+      try {
+        const res = await fetch(`${API_BASE}/api/chat/conversations`, { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to create new conversation session.');
+        const newConv = await res.json();
+        activeConversationId = newConv._id;
+        recentConversations.unshift(newConv);
+        renderConversationsMenu();
+      } catch (err) {
+        console.error(err);
+        showToast('Session Error', 'Could not initialize a chat session.', 'error');
+        return;
+      }
+    }
+
+    // Clear textarea & disable inputs
+    searchQueryInput.value = '';
+    searchQueryInput.style.height = '40px';
+    searchQueryInput.disabled = true;
     searchBtn.disabled = true;
-    searchBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px; margin: 0 0.5rem 0 0; display: inline-block; border-width: 2px; vertical-align: middle;"></span> Consulting Assistant...';
-    searchResultsWrapper.style.display = 'none';
-    aiAnswerCard.style.display = 'none';
-    searchResultsList.innerHTML = '';
+    searchBtn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px; margin: 0; display: inline-block; border-width: 2px; vertical-align: middle;"></span>';
+
+    // Remove welcome message if it's there
+    const welcome = chatMessagesContainer.querySelector('.chat-welcome-message');
+    if (welcome) welcome.remove();
+
+    // Append user message bubble
+    appendMessageBubble('user', query);
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+
+    // Append placeholder assistant message bubble with typing indicator
+    const assistantBubbleId = 'msg-bubble-' + Date.now();
+    const assistantBubble = appendMessageBubble('assistant', '', assistantBubbleId, true);
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
 
     try {
       const limit = parseInt(limitInput.value);
       const similarityThreshold = parseFloat(similarityThresholdInput.value);
       const numCandidates = parseInt(numCandidatesInput.value);
 
-      const res = await fetch(`${API_BASE}/api/chat/query`, {
+      const response = await fetch(`${API_BASE}/api/chat/conversations/${activeConversationId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          query, 
-          limit, 
-          similarityThreshold, 
-          numCandidates 
+        body: JSON.stringify({
+          text: query,
+          stream: true,
+          limit,
+          similarityThreshold,
+          numCandidates
         })
       });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to complete Q&A assistant query.');
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to send message.');
       }
 
-      const data = await res.json();
-      renderSearchResults(data);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let activeText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (!cleanLine.startsWith('data: ')) continue;
+          
+          try {
+            const data = JSON.parse(cleanLine.substring(6));
+            if (data.type === 'sources') {
+              renderActiveSources(data.sources);
+            } else if (data.type === 'token') {
+              const typingIndicator = assistantBubble.querySelector('.typing-indicator');
+              if (typingIndicator) typingIndicator.remove();
+
+              activeText += data.text;
+              assistantBubble.innerHTML = formatAnswer(activeText);
+              chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            } else if (data.type === 'done') {
+              const typingIndicator = assistantBubble.querySelector('.typing-indicator');
+              if (typingIndicator) typingIndicator.remove();
+
+              if (data.responseChunks && data.responseChunks.length > 0) {
+                assistantBubble.innerHTML = renderAnswerWithCitations(data.responseChunks);
+                bindInteractiveCitations(data.responseChunks, assistantBubble);
+              } else {
+                assistantBubble.innerHTML = formatAnswer(data.answer);
+              }
+              chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+              loadConversations();
+            } else if (data.type === 'error') {
+              throw new Error(data.error);
+            }
+          } catch (e) {
+            console.error('Error parsing SSE event:', e, cleanLine);
+          }
+        }
+      }
+
     } catch (error) {
       console.error(error);
-      showToast('Assistant Error', error.message || 'An error occurred during assistant query.', 'error');
+      showToast('Assistant Error', error.message || 'Connection failed.', 'error');
+      const typingIndicator = assistantBubble.querySelector('.typing-indicator');
+      if (typingIndicator) typingIndicator.remove();
+      assistantBubble.innerHTML = `<p style="color: var(--danger);">⚠️ **Error:** ${escapeHtml(error.message || 'Failed to stream response.')}</p>`;
     } finally {
+      searchQueryInput.disabled = false;
       searchBtn.disabled = false;
-      searchBtn.innerHTML = '<i data-lucide="sparkles"></i> Ask Assistant';
+      searchBtn.innerHTML = '<i data-lucide="send"></i>';
+      searchQueryInput.focus();
       lucide.createIcons();
     }
   }
 
-  function renderSearchResults(data) {
-    searchResultsWrapper.style.display = 'block';
+  function appendMessageBubble(sender, text, id = null, isTyping = false) {
+    const bubble = document.createElement('div');
+    bubble.className = `message-bubble ${sender}-message`;
+    if (id) bubble.id = id;
 
-    // 1. Render AI Assistant Answer
-    if (data.answer) {
-      aiAnswerCard.style.display = 'block';
-      if (data.responseChunks && data.responseChunks.length > 0) {
-        aiAnswerContent.innerHTML = renderAnswerWithCitations(data.responseChunks);
-      } else {
-        aiAnswerContent.innerHTML = formatAnswer(data.answer);
-      }
+    if (isTyping) {
+      bubble.innerHTML = `
+        <div class="typing-indicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      `;
     } else {
-      aiAnswerCard.style.display = 'none';
+      bubble.innerHTML = formatAnswer(text);
     }
 
-    // 2. Render Source references
-    const sources = data.sources || [];
+    chatMessagesContainer.appendChild(bubble);
+    return bubble;
+  }
+
+  function renderActiveSources(sources) {
+    searchResultsWrapper.style.display = 'block';
     resultsCount.textContent = `${sources.length} source${sources.length === 1 ? '' : 's'}`;
+    searchResultsList.innerHTML = '';
 
     if (sources.length === 0) {
       searchResultsList.innerHTML = `
-        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.85rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
-          No matching knowledge sources found. Try uploading a relevant PDF or refining your search.
+        <div style="text-align: center; padding: 1.5rem 1rem; color: var(--text-muted); font-size: 0.85rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
+          No matching knowledge sources found.
         </div>
       `;
       return;
@@ -552,11 +665,163 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     lucide.createIcons();
+  }
 
-    // Bind interaction events for citation mapping
-    if (data.responseChunks && data.responseChunks.length > 0) {
-      bindInteractiveCitations(data.responseChunks);
+  async function loadConversations() {
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/conversations`);
+      if (!res.ok) throw new Error('Failed to retrieve chats');
+      recentConversations = await res.json();
+      renderConversationsMenu();
+    } catch (err) {
+      console.error('[Chat History] Load conversations failed:', err);
     }
+  }
+
+  function renderConversationsMenu() {
+    chatSessionsMenu.innerHTML = '';
+    if (recentConversations.length === 0) {
+      chatSessionsMenu.innerHTML = `
+        <div style="padding: 0.8rem 1rem; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+          No recent chats
+        </div>
+      `;
+      return;
+    }
+
+    recentConversations.forEach(conv => {
+      const item = document.createElement('div');
+      item.className = `chat-session-item ${activeConversationId === conv._id ? 'active' : ''}`;
+      
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'chat-session-title';
+      titleSpan.textContent = conv.title || 'New Chat';
+      titleSpan.title = conv.title || 'New Chat';
+      titleSpan.addEventListener('click', () => {
+        selectConversation(conv._id);
+        chatSessionsMenu.style.display = 'none';
+      });
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-icon delete-session-btn';
+      deleteBtn.innerHTML = '<i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>';
+      deleteBtn.title = 'Delete Chat';
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        confirmAndDeleteConversation(conv._id);
+      });
+
+      item.appendChild(titleSpan);
+      item.appendChild(deleteBtn);
+      chatSessionsMenu.appendChild(item);
+    });
+
+    lucide.createIcons();
+  }
+
+  async function selectConversation(id) {
+    activeConversationId = id;
+    chatMessagesContainer.innerHTML = `
+      <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+        <div class="spinner" style="width: 24px; height: 24px;"></div>
+      </div>
+    `;
+    searchResultsWrapper.style.display = 'none';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/conversations/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch chat messages.');
+      const data = await res.json();
+      
+      chatMessagesContainer.innerHTML = '';
+      const messages = data.messages || [];
+
+      if (messages.length === 0) {
+        chatMessagesContainer.innerHTML = `
+          <div class="chat-welcome-message">
+            <i data-lucide="sparkles" class="welcome-icon"></i>
+            <h3>Welcome to OpsMind Assistant</h3>
+            <p>Ask a question about your standard operating procedures. The assistant will search the knowledge base and reply with interactive citations.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      messages.forEach((msg, idx) => {
+        if (msg.sender === 'user') {
+          appendMessageBubble('user', msg.text);
+        } else {
+          const formattedSources = msg.sources || [];
+          if (idx === messages.length - 1 && formattedSources.length > 0) {
+            renderActiveSources(formattedSources);
+          }
+
+          const bubble = document.createElement('div');
+          bubble.className = 'message-bubble assistant-message';
+          
+          const responseChunks = msg.responseChunks || [];
+          if (responseChunks.length > 0) {
+            bubble.innerHTML = renderAnswerWithCitations(responseChunks);
+            chatMessagesContainer.appendChild(bubble);
+            bindInteractiveCitations(responseChunks, bubble);
+          } else {
+            bubble.innerHTML = formatAnswer(msg.text);
+            chatMessagesContainer.appendChild(bubble);
+          }
+        }
+      });
+
+      chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+      renderConversationsMenu();
+    } catch (err) {
+      console.error(err);
+      showToast('Fetch Error', 'Failed to retrieve chat history.', 'error');
+      chatMessagesContainer.innerHTML = `
+        <div style="padding: 2rem; text-align: center; color: var(--danger);">
+          <i data-lucide="alert-triangle" style="width: 32px; height: 32px; margin-bottom: 0.5rem;"></i>
+          <p>Failed to load chat history.</p>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+  }
+
+  async function confirmAndDeleteConversation(id) {
+    if (confirm('Are you sure you want to delete this conversation and all its messages?')) {
+      try {
+        const res = await fetch(`${API_BASE}/api/chat/conversations/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Deleted', 'Conversation deleted.', 'success');
+          if (activeConversationId === id) {
+            startNewChat();
+          } else {
+            loadConversations();
+          }
+        } else {
+          showToast('Error', 'Failed to delete conversation.', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error', 'Could not delete conversation.', 'error');
+      }
+    }
+  }
+
+  function startNewChat() {
+    activeConversationId = null;
+    chatMessagesContainer.innerHTML = `
+      <div class="chat-welcome-message">
+        <i data-lucide="sparkles" class="welcome-icon"></i>
+        <h3>Welcome to OpsMind Assistant</h3>
+        <p>Ask a question about your standard operating procedures. The assistant will search the knowledge base and reply with interactive citations.</p>
+      </div>
+    `;
+    searchResultsWrapper.style.display = 'none';
+    searchQueryInput.value = '';
+    searchQueryInput.focus();
+    loadConversations();
+    lucide.createIcons();
   }
 
   // Helper: Renders structured chunks with citation badges and proper list wrappers
@@ -635,10 +900,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   }
 
-  // Binds hover and click event handlers to chunks and citation badges
-  function bindInteractiveCitations(responseChunks) {
-    const chunks = document.querySelectorAll('.response-chunk');
-    const badges = document.querySelectorAll('.citation-badge');
+  // Binds hover and click event handlers to chunks and citation badges (scoped to a container if provided)
+  function bindInteractiveCitations(responseChunks, container = document) {
+    const chunks = container.querySelectorAll('.response-chunk');
+    const badges = container.querySelectorAll('.citation-badge');
 
     // Highlight source references on chunk hover
     chunks.forEach(chunk => {
