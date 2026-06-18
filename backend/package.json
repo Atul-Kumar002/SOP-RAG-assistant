@@ -7,7 +7,9 @@
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "verify-atlas": "node scripts/verify_atlas.js",
-    "verify-search": "node scripts/verify_search.js"
+    "verify-search": "node scripts/verify_search.js",
+    "test:history": "node test_history_persistence.js",
+    "test:hallucination": "node test_hallucination_testing.js"
   },
   "keywords": [],
   "author": "",
