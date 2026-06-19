@@ -41,6 +41,7 @@ const formatSources = (chunks) => {
   if (!chunks || chunks.length === 0) return [];
 
   return chunks.map(chunk => {
+    const docId = chunk.documentId || null;
     const docName = chunk.documentName || (chunk.metadata && chunk.metadata.documentName) || 'Unknown Document';
     const pageNum = chunk.pageNumber || (chunk.metadata && chunk.metadata.pageNumber) || 'Unknown Page';
     const sectionRef = (chunk.metadata && chunk.metadata.sectionInfo) || 'Introduction';
@@ -48,6 +49,7 @@ const formatSources = (chunks) => {
     const score = typeof chunk.score === 'number' ? chunk.score : null;
 
     return {
+      documentId: docId,
       documentName: docName,
       pageNumber: pageNum,
       sectionRef: sectionRef,

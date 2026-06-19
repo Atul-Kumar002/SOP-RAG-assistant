@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let activeFile = null;
   let allDocuments = [];
+  const reindexingDocs = new Set();
 
   // Initialize Lucide Icons
   lucide.createIcons();
@@ -353,6 +354,15 @@ document.addEventListener('DOMContentLoaded', () => {
       chunkTd.innerHTML = `<span class="badge badge-chunks">${doc.chunkCount} chunks</span>`;
       tr.appendChild(chunkTd);
 
+      // Status cell
+      const statusTd = document.createElement('td');
+      if (reindexingDocs.has(doc.id || doc._id)) {
+        statusTd.innerHTML = `<span class="badge badge-reindexing" style="background: rgba(230, 162, 60, 0.1); color: #e6a23c; border: 1px solid rgba(230, 162, 60, 0.2);"><i class="spinner-icon loader-icon" style="display: inline-block; animation: spin 1s linear infinite; width: 10px; height: 10px; border: 2px solid #e6a23c; border-top-color: transparent; border-radius: 50%; margin-right: 4px; vertical-align: middle;"></i> Re-indexing</span>`;
+      } else {
+        statusTd.innerHTML = `<span class="badge badge-status" style="background: rgba(103, 194, 58, 0.1); color: #67c23a; border: 1px solid rgba(103, 194, 58, 0.2);">Indexed</span>`;
+      }
+      tr.appendChild(statusTd);
+
       // Storage Provider cell
       const storageTd = document.createElement('td');
       const provider = doc.storageProvider || 'local';
@@ -376,6 +386,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const actionsTd = document.createElement('td');
       actionsTd.className = 'actions-cell';
       
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'btn-icon btn-view';
+      viewBtn.title = 'View PDF';
+      viewBtn.innerHTML = '<i data-lucide="eye"></i>';
+      viewBtn.addEventListener('click', () => {
+        window.open(`${API_BASE}/api/admin/documents/${doc.id || doc._id}/view`, '_blank');
+      });
+      actionsTd.appendChild(viewBtn);
+
+      const reindexBtn = document.createElement('button');
+      reindexBtn.className = 'btn-icon btn-reindex';
+      reindexBtn.title = 'Re-index Embeddings';
+      reindexBtn.innerHTML = '<i data-lucide="refresh-cw"></i>';
+      if (reindexingDocs.has(doc.id || doc._id)) {
+        reindexBtn.disabled = true;
+      }
+      reindexBtn.addEventListener('click', () => triggerReindex(doc));
+      actionsTd.appendChild(reindexBtn);
+      
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'btn-icon btn-delete';
       deleteBtn.title = 'Delete Document';
@@ -388,6 +417,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     lucide.createIcons();
+  }
+
+  async function triggerReindex(doc) {
+    const docId = doc.id || doc._id;
+    if (reindexingDocs.has(docId)) return;
+
+    reindexingDocs.add(docId);
+    renderTable(allDocuments);
+
+    try {
+      showToast('Re-indexing', `Re-indexing embeddings for "${doc.name}"...`, 'info');
+      const res = await fetch(`${API_BASE}/api/admin/documents/${docId}/reindex`, {
+        method: 'POST'
+      });
+
+      if (res.ok) {
+        showToast('Success', `Successfully re-indexed "${doc.name}"!`, 'success');
+      } else {
+        const err = await res.json();
+        showToast('Failed', err.error || 'Failed to re-index.', 'error');
+      }
+    } catch (error) {
+      console.error(error);
+      showToast('Error', 'An error occurred during re-indexing request.', 'error');
+    } finally {
+      reindexingDocs.delete(docId);
+      loadDocuments();
+    }
   }
 
   async function confirmAndDeleteDocument(doc) {
@@ -655,11 +712,39 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="badge badge-page">Page ${source.pageNumber}</span>
         </div>
         <p class="result-text">"${escapeHtml(source.text)}"</p>
-        <div class="result-section">
-          <i data-lucide="hash"></i>
-          Section: ${sectionInfo}
+        <div class="result-section" style="display: flex; align-items: center; justify-content: space-between;">
+          <span>
+            <i data-lucide="hash"></i>
+            Section: ${sectionInfo}
+          </span>
+          <button class="open-source-pdf-btn" data-doc-name="${escapeHtml(source.documentName)}" data-doc-id="${source.documentId || ''}" data-page="${source.pageNumber}" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); color: var(--text-light); border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+            <i data-lucide="external-link" style="width: 10px; height: 10px;"></i> Open PDF
+          </button>
         </div>
       `;
+
+      const openBtn = div.querySelector('.open-source-pdf-btn');
+      if (openBtn) {
+        openBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const docName = openBtn.getAttribute('data-doc-name');
+          let docId = openBtn.getAttribute('data-doc-id');
+          const page = openBtn.getAttribute('data-page');
+
+          if (!docId) {
+            const foundDoc = allDocuments.find(d => d.name === docName);
+            if (foundDoc) {
+              docId = foundDoc.id || foundDoc._id;
+            }
+          }
+
+          if (docId) {
+            window.open(`${API_BASE}/api/admin/documents/${docId}/view#page=${page}`, '_blank');
+          } else {
+            showToast('Document View', 'Could not retrieve PDF reference ID for this source.', 'info');
+          }
+        });
+      }
 
       searchResultsList.appendChild(div);
     });
@@ -931,18 +1016,28 @@ document.addEventListener('DOMContentLoaded', () => {
     badges.forEach(badge => {
       badge.addEventListener('click', (e) => {
         e.stopPropagation();
-        const refIndex = badge.getAttribute('data-ref');
+        const refIndex = parseInt(badge.getAttribute('data-ref'), 10);
         const sourceCard = document.getElementById(`source-card-${refIndex}`);
+        
+        // Highlight chunk element temporarily
+        const chunkElement = badge.closest('.response-chunk');
+        if (chunkElement) {
+          chunkElement.classList.remove('active-chunk-highlight');
+          void chunkElement.offsetWidth; // Trigger reflow
+          chunkElement.classList.add('active-chunk-highlight');
+          setTimeout(() => {
+            chunkElement.classList.remove('active-chunk-highlight');
+          }, 3000);
+        }
+
+        // Highlight and scroll to source card
         if (sourceCard) {
-          // Smooth scroll to card
           sourceCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-          // Flash animation
           sourceCard.classList.remove('flash-source');
           void sourceCard.offsetWidth; // Trigger reflow
           sourceCard.classList.add('flash-source');
 
-          // Add a glow highlight temporarily
           document.querySelectorAll('.search-result-item').forEach(card => {
             card.classList.remove('highlighted-source');
           });
@@ -950,6 +1045,31 @@ document.addEventListener('DOMContentLoaded', () => {
           setTimeout(() => {
             sourceCard.classList.remove('highlighted-source');
           }, 2500);
+        }
+
+        // Open PDF at corresponding page
+        let citationObj = null;
+        for (const rChunk of responseChunks) {
+          if (rChunk.citations) {
+            citationObj = rChunk.citations.find(c => c.sourceIndex === refIndex);
+            if (citationObj) break;
+          }
+        }
+
+        if (citationObj) {
+          let docId = citationObj.documentId;
+          if (!docId) {
+            const foundDoc = allDocuments.find(d => d.name === citationObj.documentName);
+            if (foundDoc) {
+              docId = foundDoc.id || foundDoc._id;
+            }
+          }
+
+          if (docId) {
+            window.open(`${API_BASE}/api/admin/documents/${docId}/view#page=${citationObj.pageNumber}`, '_blank');
+          } else {
+            showToast('Document View', 'Could not retrieve PDF reference ID for this citation.', 'info');
+          }
         }
       });
     });

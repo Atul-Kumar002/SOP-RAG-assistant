@@ -1484,4 +1484,39 @@ body {
   font-size: 0.85rem;
 }
 
+/* Active Chunk Highlight (For click citations) */
+.active-chunk-highlight {
+  background: rgba(6, 182, 212, 0.15);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: all 0.3s ease;
+  color: #22d3ee;
+}
+
+.flash-source {
+  animation: flash-green 1.5s ease-out;
+}
+
+@keyframes flash-green {
+  0% {
+    background-color: rgba(168, 85, 247, 0.3);
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+  }
+  100% {
+    background-color: rgba(255, 255, 255, 0.02);
+    box-shadow: none;
+  }
+}
+
+.btn-view:hover {
+  color: var(--accent-cyan) !important;
+  background: rgba(6, 182, 212, 0.15) !important;
+}
+
+.btn-reindex:hover {
+  color: #e6a23c !important;
+  background: rgba(230, 162, 60, 0.15) !important;
+}
+
 
