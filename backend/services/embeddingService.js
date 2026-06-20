@@ -3,6 +3,9 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const EMBEDDING_MODEL = 'gemini-embedding-001';
 let genAI;
 
+// Simple in-memory cache for query embeddings
+const embeddingCache = new Map();
+
 /**
  * Returns a cached instance of the Google Generative AI client.
  */
@@ -24,6 +27,15 @@ const getClient = () => {
  */
 const getEmbedding = async (text) => {
   try {
+    if (!text || text.trim() === '') {
+      return [];
+    }
+    const trimmedText = text.trim();
+    if (embeddingCache.has(trimmedText)) {
+      console.log(`[Embedding Service] Cache HIT for text embedding: "${trimmedText.substring(0, 50)}${trimmedText.length > 50 ? '...' : ''}"`);
+      return embeddingCache.get(trimmedText);
+    }
+
     const client = getClient();
     const model = client.getGenerativeModel({ model: EMBEDDING_MODEL });
     const result = await model.embedContent({
@@ -32,7 +44,16 @@ const getEmbedding = async (text) => {
     });
     
     if (result && result.embedding && result.embedding.values) {
-      return result.embedding.values;
+      const values = result.embedding.values;
+      embeddingCache.set(trimmedText, values);
+      
+      // Limit cache size to 500 items to prevent unbounded memory growth
+      if (embeddingCache.size > 500) {
+        const oldestKey = embeddingCache.keys().next().value;
+        embeddingCache.delete(oldestKey);
+      }
+      
+      return values;
     }
     throw new Error('Invalid response format received from embedding service API.');
   } catch (error) {

@@ -38,162 +38,160 @@
     <!-- Main Grid -->
     <main class="dashboard-grid">
       
-      <div class="sidebar-column">
-        <!-- Upload Section -->
-        <section class="card upload-card">
-          <div class="card-header">
-            <div class="header-icon cyan-glow">
-              <i data-lucide="file-up"></i>
+      <!-- Upload Section -->
+      <section class="card upload-card">
+        <div class="card-header">
+          <div class="header-icon cyan-glow">
+            <i data-lucide="file-up"></i>
+          </div>
+          <div>
+            <h2>Upload SOP Documents</h2>
+            <p>Ingest knowledge documents securely into MongoDB Atlas Vector Search</p>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- Dropzone -->
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+            <div class="dropzone-content">
+              <div class="upload-art">
+                <i data-lucide="upload-cloud" class="cloud-icon"></i>
+              </div>
+              <h3>Drag & Drop PDF File</h3>
+              <p>or <span>browse your computer</span></p>
+              <span class="file-hint">Supported Format: PDF (Max 50MB)</span>
+            </div>
+          </div>
+
+          <!-- Active File Info -->
+          <div class="selected-file-container" id="selectedFileContainer" style="display: none;">
+            <div class="file-details">
+              <i data-lucide="file-text" class="pdf-icon"></i>
+              <div class="file-info-text">
+                <h4 id="selectedFileName">document.pdf</h4>
+                <p id="selectedFileSize">0 KB</p>
+              </div>
+              <button class="btn-icon remove-file-btn" id="removeFileBtn" title="Remove File">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="upload-progress-wrapper" id="progressWrapper" style="display: none;">
+              <div class="progress-info">
+                <span id="uploadStatusText">Uploading document...</span>
+                <span id="uploadPercentage">0%</span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="uploadBtn">
+              <i data-lucide="sparkles"></i> Ingest Document
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Search Section -->
+      <section class="card search-card">
+        <div class="card-header chat-header-controls">
+          <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+            <div class="header-icon purple-glow">
+              <i data-lucide="message-square"></i>
             </div>
             <div>
-              <h2>Upload SOP Documents</h2>
-              <p>Ingest knowledge documents securely into MongoDB Atlas Vector Search</p>
+              <h2>SOP Query Assistant</h2>
+              <p>Multi-turn Conversational RAG</p>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <button class="btn-icon" id="newChatBtn" title="Start New Chat">
+              <i data-lucide="plus"></i>
+            </button>
+            <div class="chat-sessions-dropdown-wrapper">
+              <button class="btn-icon" id="toggleSessionsBtn" title="Recent Chats">
+                <i data-lucide="history"></i>
+              </button>
+              <div class="chat-sessions-menu" id="chatSessionsMenu" style="display: none;">
+                <!-- Dynamically populated conversations list -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body search-section-body">
+          <!-- Relevance Tuning Panel -->
+          <div class="tuning-panel">
+            <button class="tuning-toggle" id="tuningToggle" type="button">
+              <span class="toggle-title"><i data-lucide="sliders"></i> Relevance Tuning Options</span>
+              <i data-lucide="chevron-down" class="toggle-chevron" id="tuningChevron"></i>
+            </button>
+            <div class="tuning-content" id="tuningContent" style="display: none;">
+              <!-- Similarity Threshold Slider -->
+              <div class="tuning-item">
+                <div class="tuning-label-wrapper">
+                  <label for="similarityThresholdInput">Similarity Threshold</label>
+                  <span class="tuning-value" id="similarityThresholdVal">0.00</span>
+                </div>
+                <input type="range" id="similarityThresholdInput" class="tuning-slider" min="0.0" max="0.95" step="0.05" value="0.00">
+                <p class="tuning-desc">Filter out text blocks below this match score. 0.00 retrieves all candidates.</p>
+              </div>
+
+              <!-- Retrieve Limit Slider -->
+              <div class="tuning-item">
+                <div class="tuning-label-wrapper">
+                  <label for="limitInput">Candidate Limit (Results)</label>
+                  <span class="tuning-value" id="limitVal">5</span>
+                </div>
+                <input type="range" id="limitInput" class="tuning-slider" min="1" max="20" step="1" value="5">
+                <p class="tuning-desc">Maximum number of relevant text blocks fed to the AI context.</p>
+              </div>
+
+              <!-- Retrieval Accuracy / numCandidates Slider -->
+              <div class="tuning-item">
+                <div class="tuning-label-wrapper">
+                  <label for="numCandidatesInput">Retrieval Accuracy</label>
+                  <span class="tuning-value" id="numCandidatesVal">100</span>
+                </div>
+                <input type="range" id="numCandidatesInput" class="tuning-slider" min="10" max="500" step="10" value="100">
+                <p class="tuning-desc">Candidates scanned by MongoDB vector index. Higher values improve quality.</p>
+              </div>
             </div>
           </div>
 
-          <div class="card-body">
-            <!-- Dropzone -->
-            <div class="dropzone" id="dropzone">
-              <input type="file" id="fileInput" accept=".pdf" style="display: none;">
-              <div class="dropzone-content">
-                <div class="upload-art">
-                  <i data-lucide="upload-cloud" class="cloud-icon"></i>
-                </div>
-                <h3>Drag & Drop PDF File</h3>
-                <p>or <span>browse your computer</span></p>
-                <span class="file-hint">Supported Format: PDF (Max 50MB)</span>
-              </div>
+          <!-- Conversational Messages Container -->
+          <div class="chat-messages-container" id="chatMessagesContainer">
+            <div class="chat-welcome-message">
+              <i data-lucide="sparkles" class="welcome-icon"></i>
+              <h3>Welcome to OpsMind Assistant</h3>
+              <p>Ask a question about your standard operating procedures. The assistant will search the knowledge base and reply with interactive citations.</p>
             </div>
+          </div>
 
-            <!-- Active File Info -->
-            <div class="selected-file-container" id="selectedFileContainer" style="display: none;">
-              <div class="file-details">
-                <i data-lucide="file-text" class="pdf-icon"></i>
-                <div class="file-info-text">
-                  <h4 id="selectedFileName">document.pdf</h4>
-                  <p id="selectedFileSize">0 KB</p>
-                </div>
-                <button class="btn-icon remove-file-btn" id="removeFileBtn" title="Remove File">
-                  <i data-lucide="x"></i>
-                </button>
-              </div>
-
-              <!-- Progress Bar -->
-              <div class="upload-progress-wrapper" id="progressWrapper" style="display: none;">
-                <div class="progress-info">
-                  <span id="uploadStatusText">Uploading document...</span>
-                  <span id="uploadPercentage">0%</span>
-                </div>
-                <div class="progress-bar-container">
-                  <div class="progress-bar" id="progressBar"></div>
-                </div>
-              </div>
-
-              <button class="btn btn-primary btn-block" id="uploadBtn">
-                <i data-lucide="sparkles"></i> Ingest Document
+          <div class="chat-input-group">
+            <textarea id="searchQueryInput" placeholder="Ask a question about your SOPs..." rows="1" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
+            <div class="chat-input-actions">
+              <button class="btn btn-primary" id="searchBtn">
+                <i data-lucide="send"></i>
               </button>
             </div>
           </div>
-        </section>
 
-        <!-- Search Section -->
-        <section class="card search-card">
-          <div class="card-header chat-header-controls">
-            <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
-              <div class="header-icon purple-glow">
-                <i data-lucide="message-square"></i>
-              </div>
-              <div>
-                <h2>SOP Query Assistant</h2>
-                <p>Multi-turn Conversational RAG</p>
-              </div>
+          <!-- Search Results / Source Catalog Mapping -->
+          <div class="search-results-wrapper" id="searchResultsWrapper" style="display: none;">
+            <div class="search-results-header">
+              <h3>Sources for Active Response</h3>
+              <span class="results-count" id="resultsCount">0 matches</span>
             </div>
-            <div class="chat-actions">
-              <button class="btn-icon" id="newChatBtn" title="Start New Chat">
-                <i data-lucide="plus"></i>
-              </button>
-              <div class="chat-sessions-dropdown-wrapper">
-                <button class="btn-icon" id="toggleSessionsBtn" title="Recent Chats">
-                  <i data-lucide="history"></i>
-                </button>
-                <div class="chat-sessions-menu" id="chatSessionsMenu" style="display: none;">
-                  <!-- Dynamically populated conversations list -->
-                </div>
-              </div>
+            <div class="search-results-list" id="searchResultsList">
+              <!-- Dynamically populated -->
             </div>
           </div>
-
-          <div class="card-body search-section-body">
-            <!-- Relevance Tuning Panel -->
-            <div class="tuning-panel">
-              <button class="tuning-toggle" id="tuningToggle" type="button">
-                <span class="toggle-title"><i data-lucide="sliders"></i> Relevance Tuning Options</span>
-                <i data-lucide="chevron-down" class="toggle-chevron" id="tuningChevron"></i>
-              </button>
-              <div class="tuning-content" id="tuningContent" style="display: none;">
-                <!-- Similarity Threshold Slider -->
-                <div class="tuning-item">
-                  <div class="tuning-label-wrapper">
-                    <label for="similarityThresholdInput">Similarity Threshold</label>
-                    <span class="tuning-value" id="similarityThresholdVal">0.00</span>
-                  </div>
-                  <input type="range" id="similarityThresholdInput" class="tuning-slider" min="0.0" max="0.95" step="0.05" value="0.00">
-                  <p class="tuning-desc">Filter out text blocks below this match score. 0.00 retrieves all candidates.</p>
-                </div>
-
-                <!-- Retrieve Limit Slider -->
-                <div class="tuning-item">
-                  <div class="tuning-label-wrapper">
-                    <label for="limitInput">Candidate Limit (Results)</label>
-                    <span class="tuning-value" id="limitVal">5</span>
-                  </div>
-                  <input type="range" id="limitInput" class="tuning-slider" min="1" max="20" step="1" value="5">
-                  <p class="tuning-desc">Maximum number of relevant text blocks fed to the AI context.</p>
-                </div>
-
-                <!-- Retrieval Accuracy / numCandidates Slider -->
-                <div class="tuning-item">
-                  <div class="tuning-label-wrapper">
-                    <label for="numCandidatesInput">Retrieval Accuracy</label>
-                    <span class="tuning-value" id="numCandidatesVal">100</span>
-                  </div>
-                  <input type="range" id="numCandidatesInput" class="tuning-slider" min="10" max="500" step="10" value="100">
-                  <p class="tuning-desc">Candidates scanned by MongoDB vector index. Higher values improve quality.</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Conversational Messages Container -->
-            <div class="chat-messages-container" id="chatMessagesContainer">
-              <div class="chat-welcome-message">
-                <i data-lucide="sparkles" class="welcome-icon"></i>
-                <h3>Welcome to OpsMind Assistant</h3>
-                <p>Ask a question about your standard operating procedures. The assistant will search the knowledge base and reply with interactive citations.</p>
-              </div>
-            </div>
-
-            <div class="chat-input-group">
-              <textarea id="searchQueryInput" placeholder="Ask a question about your SOPs..." rows="1" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
-              <div class="chat-input-actions">
-                <button class="btn btn-primary" id="searchBtn">
-                  <i data-lucide="send"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Search Results / Source Catalog Mapping -->
-            <div class="search-results-wrapper" id="searchResultsWrapper" style="display: none;">
-              <div class="search-results-header">
-                <h3>Sources for Active Response</h3>
-                <span class="results-count" id="resultsCount">0 matches</span>
-              </div>
-              <div class="search-results-list" id="searchResultsList">
-                <!-- Dynamically populated -->
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       <!-- Document Directory Section -->
       <section class="card directory-card">

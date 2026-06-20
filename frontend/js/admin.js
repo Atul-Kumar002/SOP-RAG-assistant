@@ -648,7 +648,31 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Assistant Error', error.message || 'Connection failed.', 'error');
       const typingIndicator = assistantBubble.querySelector('.typing-indicator');
       if (typingIndicator) typingIndicator.remove();
-      assistantBubble.innerHTML = `<p style="color: var(--danger);">⚠️ **Error:** ${escapeHtml(error.message || 'Failed to stream response.')}</p>`;
+      
+      assistantBubble.className = 'error-bubble';
+      assistantBubble.innerHTML = `
+        <div class="error-title">
+          <i data-lucide="alert-triangle"></i>
+          <span>Assistant Query Failed</span>
+        </div>
+        <div class="error-msg">
+          ${escapeHtml(error.message || 'An error occurred while streaming the response from the server.')}
+        </div>
+        <div class="error-actions">
+          <button class="btn-retry" id="retry-btn-${assistantBubbleId}">
+            <i data-lucide="refresh-cw" style="width: 12px; height: 12px; margin-right: 4px;"></i> Retry Query
+          </button>
+        </div>
+      `;
+
+      const retryBtn = document.getElementById(`retry-btn-${assistantBubbleId}`);
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          assistantBubble.remove();
+          searchQueryInput.value = query;
+          performConversationalSearch();
+        });
+      }
     } finally {
       searchQueryInput.disabled = false;
       searchBtn.disabled = false;

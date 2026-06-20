@@ -159,7 +159,8 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
     // 2. Fetch history (excluding the new user message we just saved)
     const history = await Message.find({ conversationId }).sort({ createdAt: 1 });
-    const priorMessages = history.slice(0, -1);
+    // Limit prior messages to the last 6 messages (3 turns) to optimize token usage
+    const priorMessages = history.slice(0, -1).slice(-6);
 
     // 3. Rephrase query if history exists
     let searchTerms = text.trim();

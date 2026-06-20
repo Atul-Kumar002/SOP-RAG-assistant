@@ -170,14 +170,33 @@ body {
 /* Dashboard Grid Layout */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 420px 1fr;
+  grid-template-columns: 400px 1fr;
   gap: 2rem;
   align-items: start;
+}
+
+.upload-card {
+  grid-column: 1;
+}
+
+.search-card {
+  grid-column: 2;
+  grid-row: 1 / span 1;
+}
+
+.directory-card {
+  grid-column: 1 / span 2;
 }
 
 @media (max-width: 968px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+  .upload-card, .search-card, .directory-card {
+    grid-column: 1;
+  }
+  .search-card {
+    grid-row: auto;
   }
 }
 
@@ -1517,6 +1536,84 @@ body {
 .btn-reindex:hover {
   color: #e6a23c !important;
   background: rgba(230, 162, 60, 0.15) !important;
+}
+
+/* Styled Error Cards in Chat */
+.error-bubble {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+  border-left: 4px solid var(--danger) !important;
+  color: var(--text-main);
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-md);
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-self: flex-start;
+  max-width: 85%;
+  animation: message-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.error-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #f87171;
+  font-size: 0.95rem;
+}
+
+.error-title i {
+  width: 18px;
+  height: 18px;
+}
+
+.error-msg {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgba(243, 244, 246, 0.85);
+}
+
+.error-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-retry {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.btn-retry:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Polished typing dot pulses */
+.typing-dot {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)) !important;
+  box-shadow: 0 0 6px var(--accent-cyan-glow);
+}
+
+/* Document search loader styling */
+.loading-state p {
+  font-weight: 500;
+  background: linear-gradient(to right, var(--accent-cyan), var(--accent-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pulse-glow 1.5s infinite alternate;
 }
 
 
