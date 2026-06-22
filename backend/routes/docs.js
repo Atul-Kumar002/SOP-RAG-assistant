@@ -12,6 +12,20 @@ const storageService = require('../services/storageService');
 const { buildContext, formatSources } = require('../services/contextBuilderService');
 const { generateAnswer } = require('../services/assistantService');
 const { parseResponseChunks } = require('../services/citationService');
+const { rateLimiter, validateObjectId, sanitizeString } = require('../middleware/security');
+
+// Specific rate limiters for docs endpoints
+const uploadRateLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many file uploads. Please try again later.'
+});
+
+const queryRateLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: 'Too many search requests. Please try again later.'
+});
 
 // Ensure upload directory exists for temporary Multer files
 const uploadDir = path.join(__dirname, '../uploads');
@@ -50,7 +64,7 @@ const upload = multer({
 // @route   POST /api/docs/upload
 // @desc    Upload a PDF, parse it, chunk text, generate embeddings, and index into MongoDB Atlas Vector Search
 // @access  Public
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', uploadRateLimiter, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Please upload a PDF file.' });
   }
@@ -65,6 +79,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     // 1. Read PDF file into buffer from temporary path
     const dataBuffer = fs.readFileSync(tempFilePath);
+
+    // Validate PDF file signature (magic number %PDF-)
+    if (
+      dataBuffer.length < 4 ||
+      dataBuffer[0] !== 0x25 ||
+      dataBuffer[1] !== 0x50 ||
+      dataBuffer[2] !== 0x44 ||
+      dataBuffer[3] !== 0x46
+    ) {
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      return res.status(400).json({ error: 'Invalid file format. The file is not a valid PDF document.' });
+    }
 
     // 2. Parse PDF to extract text page-by-page
     console.log(`Parsing PDF: ${fileName}`);
@@ -173,7 +199,7 @@ router.get('/', async (req, res) => {
 // @route   DELETE /api/docs/:id
 // @desc    Delete a document, its associated chunks, and the physical PDF from storage
 // @access  Public
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', validateObjectId('id'), async (req, res) => {
   try {
     const documentId = req.params.id;
     
@@ -206,15 +232,32 @@ router.delete('/:id', async (req, res) => {
 // @route   POST /api/docs/search
 // @desc    Perform Atlas Vector Search on SOP chunks using cosine similarity
 // @access  Public
-router.post('/search', async (req, res) => {
-  const { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
-  if (!query || query.trim() === '') {
-    return res.status(400).json({ error: 'Search query is required.' });
+router.post('/search', queryRateLimiter, async (req, res) => {
+  let { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
+  
+  if (typeof query !== 'string' || query.trim() === '') {
+    return res.status(400).json({ error: 'Search query must be a non-empty string.' });
+  }
+  query = sanitizeString(query);
+
+  const parsedLimit = parseInt(limit, 10);
+  if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+    return res.status(400).json({ error: 'Limit must be an integer between 1 and 50.' });
+  }
+
+  const parsedThreshold = parseFloat(similarityThreshold);
+  if (isNaN(parsedThreshold) || parsedThreshold < 0.0 || parsedThreshold > 1.0) {
+    return res.status(400).json({ error: 'Similarity threshold must be a number between 0.0 and 1.0.' });
+  }
+
+  const parsedCandidates = parseInt(numCandidates, 10);
+  if (isNaN(parsedCandidates) || parsedCandidates < 10 || parsedCandidates > 1000) {
+    return res.status(400).json({ error: 'numCandidates must be an integer between 10 and 1000.' });
   }
 
   try {
-    console.log(`Performing Vector Search for query: "${query}" with limit: ${limit}, threshold: ${similarityThreshold}, candidates: ${numCandidates}`);
-    const results = await searchChunks(query, limit, similarityThreshold, numCandidates);
+    console.log(`Performing Vector Search for query: "${query}" with limit: ${parsedLimit}, threshold: ${parsedThreshold}, candidates: ${parsedCandidates}`);
+    const results = await searchChunks(query, parsedLimit, parsedThreshold, parsedCandidates);
     res.json(results);
   } catch (error) {
     console.error('Vector search failed:', error);
@@ -229,15 +272,32 @@ router.post('/search', async (req, res) => {
 // @route   POST /api/docs/ask
 // @desc    Perform Atlas Vector Search, merge context, generate LLM answer and format sources
 // @access  Public
-router.post('/ask', async (req, res) => {
-  const { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
-  if (!query || query.trim() === '') {
-    return res.status(400).json({ error: 'Search query is required.' });
+router.post('/ask', queryRateLimiter, async (req, res) => {
+  let { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
+  
+  if (typeof query !== 'string' || query.trim() === '') {
+    return res.status(400).json({ error: 'Search query must be a non-empty string.' });
+  }
+  query = sanitizeString(query);
+
+  const parsedLimit = parseInt(limit, 10);
+  if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+    return res.status(400).json({ error: 'Limit must be an integer between 1 and 50.' });
+  }
+
+  const parsedThreshold = parseFloat(similarityThreshold);
+  if (isNaN(parsedThreshold) || parsedThreshold < 0.0 || parsedThreshold > 1.0) {
+    return res.status(400).json({ error: 'Similarity threshold must be a number between 0.0 and 1.0.' });
+  }
+
+  const parsedCandidates = parseInt(numCandidates, 10);
+  if (isNaN(parsedCandidates) || parsedCandidates < 10 || parsedCandidates > 1000) {
+    return res.status(400).json({ error: 'numCandidates must be an integer between 10 and 1000.' });
   }
 
   try {
-    console.log(`Performing Vector Search for Q&A query: "${query}" with limit: ${limit}, threshold: ${similarityThreshold}, candidates: ${numCandidates}`);
-    const results = await searchChunks(query, limit, similarityThreshold, numCandidates);
+    console.log(`Performing Vector Search for Q&A query: "${query}" with limit: ${parsedLimit}, threshold: ${parsedThreshold}, candidates: ${parsedCandidates}`);
+    const results = await searchChunks(query, parsedLimit, parsedThreshold, parsedCandidates);
     
     // Build structured LLM context
     const structuredContext = buildContext(results);

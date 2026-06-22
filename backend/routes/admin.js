@@ -9,6 +9,14 @@ const { parsePdf } = require('../services/pdfService');
 const { chunkPages } = require('../services/chunkService');
 const { getBatchEmbeddings } = require('../services/embeddingService');
 const storageService = require('../services/storageService');
+const { rateLimiter, validateObjectId } = require('../middleware/security');
+
+// Specific rate limiter for administrative endpoints
+const adminRateLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many administrative requests. Please try again later.'
+});
 
 // Ensure upload directory exists for temporary Multer files
 const uploadDir = path.join(__dirname, '../uploads');
@@ -47,7 +55,7 @@ const upload = multer({
 // @route   POST /api/admin/upload
 // @desc    Upload a PDF, parse it, chunk text, generate embeddings, and index into MongoDB Atlas Vector Search
 // @access  Public (or Admin in future)
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', adminRateLimiter, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Please upload a PDF file.' });
   }
@@ -62,6 +70,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     // 1. Read PDF file into buffer from temporary path
     const dataBuffer = fs.readFileSync(tempFilePath);
+
+    // Validate PDF file signature (magic number %PDF-)
+    if (
+      dataBuffer.length < 4 ||
+      dataBuffer[0] !== 0x25 ||
+      dataBuffer[1] !== 0x50 ||
+      dataBuffer[2] !== 0x44 ||
+      dataBuffer[3] !== 0x46
+    ) {
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      return res.status(400).json({ error: 'Invalid file format. The file is not a valid PDF document.' });
+    }
 
     // 2. Parse PDF to extract text page-by-page along with metadata
     console.log(`[Admin Upload] Parsing PDF: ${fileName}`);
@@ -168,7 +188,7 @@ router.get('/documents', async (req, res) => {
 // @route   DELETE /api/admin/documents/:id
 // @desc    Delete a document, its associated chunks, and the physical PDF from storage
 // @access  Public (or Admin in future)
-router.delete('/documents/:id', async (req, res) => {
+router.delete('/documents/:id', validateObjectId('id'), async (req, res) => {
   try {
     const documentId = req.params.id;
     
@@ -201,7 +221,7 @@ router.delete('/documents/:id', async (req, res) => {
 // @route   GET /api/admin/documents/:id/view
 // @desc    View/Download the PDF document
 // @access  Public
-router.get('/documents/:id/view', async (req, res) => {
+router.get('/documents/:id/view', validateObjectId('id'), async (req, res) => {
   try {
     const document = await Document.findById(req.params.id);
     if (!document) {
@@ -228,7 +248,7 @@ router.get('/documents/:id/view', async (req, res) => {
 // @route   POST /api/admin/documents/:id/reindex
 // @desc    Re-index the embeddings for a specific document (re-parse, re-chunk, re-embed, re-save)
 // @access  Public
-router.post('/documents/:id/reindex', async (req, res) => {
+router.post('/documents/:id/reindex', validateObjectId('id'), adminRateLimiter, async (req, res) => {
   try {
     const documentId = req.params.id;
     const document = await Document.findById(documentId);

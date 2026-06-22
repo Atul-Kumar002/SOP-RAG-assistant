@@ -6,15 +6,30 @@ const connectDB = require('./config/db');
 const docsRouter = require('./routes/docs');
 const chatRouter = require('./routes/chat');
 const adminRouter = require('./routes/admin');
+const { securityHeaders, noSqlSanitizer, rateLimiter } = require('./middleware/security');
 
 const app = express();
+
+// Enable trust proxy if running behind reverse proxies to get correct IP for rate limiting
+app.set('trust proxy', true);
 
 // Connect to MongoDB
 connectDB();
 
-// Middleware
+// Security Middlewares
+app.use(securityHeaders);
+app.use(noSqlSanitizer);
 app.use(cors());
-app.use(express.json());
+
+// Limit JSON payload size to 100kb to prevent denial of service (DoS) attacks
+app.use(express.json({ limit: '100kb' }));
+
+// Global rate limit: max 100 requests per minute per IP
+app.use(rateLimiter({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: 'Too many requests. Please try again later.'
+}));
 
 
 

@@ -6,19 +6,44 @@ const { generateAnswer, generateStandaloneQuery, generateAnswerStream } = requir
 const { parseResponseChunks } = require('../services/citationService');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const { rateLimiter, validateObjectId, sanitizeString } = require('../middleware/security');
+
+// Specific rate limiter for conversational chat endpoints
+const chatRateLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: 'Too many chat requests. Please try again later.'
+});
 
 // @route   POST /api/chat/query
 // @desc    Perform Atlas Vector Search, merge context, generate LLM answer and format sources
 // @access  Public
-router.post('/query', async (req, res) => {
-  const { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
-  if (!query || query.trim() === '') {
-    return res.status(400).json({ error: 'Search query is required.' });
+router.post('/query', chatRateLimiter, async (req, res) => {
+  let { query, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
+  
+  if (typeof query !== 'string' || query.trim() === '') {
+    return res.status(400).json({ error: 'Search query must be a non-empty string.' });
+  }
+  query = sanitizeString(query);
+
+  const parsedLimit = parseInt(limit, 10);
+  if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+    return res.status(400).json({ error: 'Limit must be an integer between 1 and 50.' });
+  }
+
+  const parsedThreshold = parseFloat(similarityThreshold);
+  if (isNaN(parsedThreshold) || parsedThreshold < 0.0 || parsedThreshold > 1.0) {
+    return res.status(400).json({ error: 'Similarity threshold must be a number between 0.0 and 1.0.' });
+  }
+
+  const parsedCandidates = parseInt(numCandidates, 10);
+  if (isNaN(parsedCandidates) || parsedCandidates < 10 || parsedCandidates > 1000) {
+    return res.status(400).json({ error: 'numCandidates must be an integer between 10 and 1000.' });
   }
 
   try {
-    console.log(`[Chat Query] Performing Vector Search for query: "${query}" with limit: ${limit}, threshold: ${similarityThreshold}, candidates: ${numCandidates}`);
-    const results = await searchChunks(query, limit, similarityThreshold, numCandidates);
+    console.log(`[Chat Query] Performing Vector Search for query: "${query}" with limit: ${parsedLimit}, threshold: ${parsedThreshold}, candidates: ${parsedCandidates}`);
+    const results = await searchChunks(query, parsedLimit, parsedThreshold, parsedCandidates);
     
     // Build structured LLM context
     const structuredContext = buildContext(results);
@@ -93,7 +118,7 @@ router.get('/conversations', async (req, res) => {
 // @route   GET /api/chat/conversations/:id
 // @desc    Get a conversation and its messages
 // @access  Public
-router.get('/conversations/:id', async (req, res) => {
+router.get('/conversations/:id', validateObjectId('id'), async (req, res) => {
   try {
     const { id } = req.params;
     const conversation = await Conversation.findById(id);
@@ -111,7 +136,7 @@ router.get('/conversations/:id', async (req, res) => {
 // @route   DELETE /api/chat/conversations/:id
 // @desc    Delete a conversation and all its messages
 // @access  Public
-router.delete('/conversations/:id', async (req, res) => {
+router.delete('/conversations/:id', validateObjectId('id'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await Conversation.deleteOne({ _id: id });
@@ -129,13 +154,32 @@ router.delete('/conversations/:id', async (req, res) => {
 // @route   POST /api/chat/conversations/:id/messages
 // @desc    Send a message to a conversation (SSE streaming supported)
 // @access  Public
-router.post('/conversations/:id/messages', async (req, res) => {
+router.post('/conversations/:id/messages', validateObjectId('id'), chatRateLimiter, async (req, res) => {
   const { id: conversationId } = req.params;
-  const { text, stream = false, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
+  let { text, stream = false, limit = 5, similarityThreshold = 0.0, numCandidates = 100 } = req.body;
 
-  if (!text || text.trim() === '') {
-    return res.status(400).json({ error: 'Message text is required.' });
+  if (typeof text !== 'string' || text.trim() === '') {
+    return res.status(400).json({ error: 'Message text must be a non-empty string.' });
   }
+  text = sanitizeString(text);
+
+  const parsedLimit = parseInt(limit, 10);
+  if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+    return res.status(400).json({ error: 'Limit must be an integer between 1 and 50.' });
+  }
+  limit = parsedLimit;
+
+  const parsedThreshold = parseFloat(similarityThreshold);
+  if (isNaN(parsedThreshold) || parsedThreshold < 0.0 || parsedThreshold > 1.0) {
+    return res.status(400).json({ error: 'Similarity threshold must be a number between 0.0 and 1.0.' });
+  }
+  similarityThreshold = parsedThreshold;
+
+  const parsedCandidates = parseInt(numCandidates, 10);
+  if (isNaN(parsedCandidates) || parsedCandidates < 10 || parsedCandidates > 1000) {
+    return res.status(400).json({ error: 'numCandidates must be an integer between 10 and 1000.' });
+  }
+  numCandidates = parsedCandidates;
 
   try {
     const conversation = await Conversation.findById(conversationId);
