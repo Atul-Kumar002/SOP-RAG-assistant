@@ -1483,6 +1483,7 @@ body {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  color: #ffffff !important;
   padding: 0.5rem 0.8rem !important;
   height: 40px;
   max-height: 120px;
